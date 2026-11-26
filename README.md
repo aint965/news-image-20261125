@@ -7,20 +7,21 @@
 A newspaper front page summing up Wednesday 25 November 2026's world news in one
 1024×1024 image, for the make.fun competition `news-image-20261125`.
 
-The lead story is Ukraine striking Russian ships at sea — President Zelenskiy
-confirmed Ukraine was behind a drone strike on a Russian cargo ship in the Gulf of
-Finland, and Ukraine says it sank a Russian warship in Benghazi harbour, Libya.
-Six further stories cover Iran (naval mines hit three oil tankers in the Strait of
-Hormuz), the Houthi drone strike on Riyadh's tallest tower, Huawei's conviction in
-a US criminal trial, Trump's Presidential Medal of Freedom for Rudy Giuliani, the
-cybersecurity breach at the CIA and the Director of National Intelligence, and
-NATO's early-warning aircraft deployment to Poland.
+The lead stories are the Strait of Hormuz (the IRGC says naval mines hit two oil
+tankers, which caught fire at sea), the first Pakistani astronaut reaching
+China's Tiangong station aboard Shenzhou-24, and the Houthis saying they hit the
+Ras Tanura refinery in Saudi Arabia. Eight further illustrated stories cover
+Sudan, Gaza, the CIA breach, Libya, Ukraine, Germany, Poland and Bangladesh, and
+a numbered list adds thirteen more — 24 stories in total, from 7 regions, every
+one first reported on Wednesday 25 November 2026.
 
 `main.ts` (Node 22, standard library only) draws the whole page programmatically —
-masthead, date band, lead story with a flat-colour sea pictogram, and a 3×2 grid of
-stories, each with its own pictogram drawn from rectangles, circles and triangles.
-Text is rendered with a small bitmap font embedded in the code, and the PNG is
-encoded by hand with `node:zlib`. No assets, no network, and both runs write
+a giant date headline, a red sub-headline of the three leads, a region-count bar,
+three illustrated lead stories with flat-colour pictograms (tanker, rocket,
+refinery), an 8-card illustrated grid, a numbered text-only list, and a DATE CHECK
+footer that names the near-miss stories left out because they happened on other
+days. Text is rendered with a small bitmap font embedded in the code, and the PNG
+is encoded by hand with `node:zlib`. No assets, no network, and both runs write
 byte-identical output.
 
 ## Run it
