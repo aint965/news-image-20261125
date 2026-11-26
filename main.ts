@@ -1,795 +1,862 @@
-// THE WORLD TODAY — Wednesday 25 November 2026, v2.
-// A newspaper front page summing up the day's world news, rebuilt after
-// studying the top-10 finishers of the finished news-image contests
-// (20261121/22/23): the winners pack 29-43 dated stories, 7-9 regions,
-// a giant date headline, a region-count bar, three illustrated leads,
-// a grid of illustrated stories, a numbered "also on" list, and a
-// DATE CHECK footer that names what was left out. This page follows
-// that shape with 24 stories, all first reported on 25 November 2026.
-//
-// Node 22, standard library only. Draws everything programmatically
-// (no assets, no network) and writes one deterministic 1024x1024 PNG
-// to $MAKEFUN_OUTPUT_DIR/entry.png.
-//
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
-
+// THE WORLD TODAY — Wednesday 25 November 2026.
+// A newspaper front page summing up 25 November 2026's world news in one
+// 1024x1024 image, for the make.fun competition news-image-20261125.
+// 30 verified stories, 7 regions, built on the anatomy of the 22 Nov
+// 1st-place winner: giant serif date, three illustrated leads, a dark
+// numbers panel, illustrated cards, an "also on" list, a dotted world map
+// with numbered pins, and an honest DATE CHECK footer.
+// Node 22, standard library only. No assets, no network. Deterministic:
+// two runs write byte-identical output.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 
-// ---------------------------------------------------------------------------
-// Canvas
-// ---------------------------------------------------------------------------
-
 const W = 1024;
 const H = 1024;
-const px = new Uint8Array(W * H * 3);
 
-type RGB = [number, number, number];
+// ---------- palette ----------
+const PAPER = [246, 241, 227];
+const INK = [22, 22, 22];
+const RED = [193, 39, 45];
+const NAVY = [20, 38, 74];
+const NAVY2 = [28, 52, 96];
+const GRAY = [107, 107, 102];
+const LINE = [60, 60, 58];
+const WHITE = [255, 255, 255];
+const SKY = [168, 205, 226];
+const SEA = [38, 84, 110];
+const GOLD = [214, 164, 32];
 
-const PAPER: RGB = [246, 241, 227];
-const INK: RGB = [22, 35, 63];
-const RED: RGB = [140, 29, 24];
-const GOLD: RGB = [201, 162, 39];
-const MUTED: RGB = [90, 84, 70];
-const CARD: RGB = [255, 253, 246];
-const CARD_LINE: RGB = [185, 173, 143];
-const WHITE: RGB = [255, 255, 255];
-const SKY: RGB = [168, 200, 222];
-const SEA: RGB = [32, 85, 126];
-const DARK: RGB = [28, 39, 51];
-const ORANGE: RGB = [224, 122, 31];
-const YELLOW: RGB = [240, 196, 64];
-const GREEN: RGB = [46, 125, 87];
-const TEAL: RGB = [43, 110, 138];
-const PURPLE: RGB = [110, 68, 140];
-
-function setPixel(x: number, y: number, c: RGB): void {
-  if (x < 0 || y < 0 || x >= W || y >= H) return;
-  const i = (y * W + x) * 3;
-  px[i] = c[0];
-  px[i + 1] = c[1];
-  px[i + 2] = c[2];
-}
-
-function fillRect(x: number, y: number, w: number, h: number, c: RGB): void {
-  const x0 = Math.max(0, x);
-  const y0 = Math.max(0, y);
-  const x1 = Math.min(W, x + w);
-  const y1 = Math.min(H, y + h);
-  for (let yy = y0; yy < y1; yy++) {
-    for (let xx = x0; xx < x1; xx++) {
-      const i = (yy * W + xx) * 3;
-      px[i] = c[0];
-      px[i + 1] = c[1];
-      px[i + 2] = c[2];
-    }
-  }
-}
-
-function frameRect(x: number, y: number, w: number, h: number, t: number, c: RGB): void {
-  fillRect(x, y, w, t, c);
-  fillRect(x, y + h - t, w, t, c);
-  fillRect(x, y, t, h, c);
-  fillRect(x + w - t, y, t, h, c);
-}
-
-function fillCircle(cx: number, cy: number, r: number, c: RGB): void {
-  for (let y = cy - r; y <= cy + r; y++) {
-    for (let x = cx - r; x <= cx + r; x++) {
-      const dx = x - cx;
-      const dy = y - cy;
-      if (dx * dx + dy * dy <= r * r) setPixel(x, y, c);
-    }
-  }
-}
-
-function fillTriangle(
-  ax: number, ay: number, bx: number, by: number, cx: number, cy: number, c: RGB,
-): void {
-  const minX = Math.max(0, Math.min(ax, bx, cx));
-  const maxX = Math.min(W - 1, Math.max(ax, bx, cx));
-  const minY = Math.max(0, Math.min(ay, by, cy));
-  const maxY = Math.min(H - 1, Math.max(ay, by, cy));
-  const d = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-  if (d === 0) return;
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const w0 = ((bx - x) * (cy - y) - (by - y) * (cx - x)) / d;
-      const w1 = ((cx - x) * (ay - y) - (cy - y) * (ax - x)) / d;
-      const w2 = 1 - w0 - w1;
-      if (w0 >= 0 && w1 >= 0 && w2 >= 0) setPixel(x, y, c);
-    }
-  }
-}
-
-function drawLine(x0: number, y0: number, x1: number, y1: number, t: number, c: RGB): void {
-  const dx = Math.abs(x1 - x0);
-  const dy = -Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  let x = x0;
-  let y = y0;
-  for (;;) {
-    fillRect(x - Math.floor(t / 2), y - Math.floor(t / 2), t, t, c);
-    if (x === x1 && y === y1) break;
-    const e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y += sy;
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Bitmap font: 5x7 glyphs, rows as 5-bit numbers (bit 4 = leftmost pixel).
-// All text is rendered uppercase, so only one case is needed.
-// ---------------------------------------------------------------------------
-
-const FONT: Record<string, number[]> = {
-  A: [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
-  B: [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
-  C: [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e],
-  D: [0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e],
-  E: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
-  F: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
-  G: [0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f],
-  H: [0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
-  I: [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e],
-  J: [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0c],
-  K: [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
-  L: [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
-  M: [0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11],
-  N: [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
-  O: [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
-  P: [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
-  Q: [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
-  R: [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
-  S: [0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e],
-  T: [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
-  U: [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
-  V: [0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
-  W: [0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11],
-  X: [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
-  Y: [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
-  Z: [0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
-  '0': [0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e],
-  '1': [0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e],
-  '2': [0x0e, 0x11, 0x01, 0x06, 0x08, 0x10, 0x1f],
-  '3': [0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e],
-  '4': [0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02],
-  '5': [0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
-  '6': [0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e],
-  '7': [0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
-  '8': [0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e],
-  '9': [0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c],
-  ' ': [0, 0, 0, 0, 0, 0, 0],
-  '.': [0, 0, 0, 0, 0, 0x0c, 0x0c],
-  ',': [0, 0, 0, 0, 0x0c, 0x04, 0x08],
-  "'": [0x04, 0x04, 0x08, 0, 0, 0, 0],
-  '-': [0, 0, 0, 0x0e, 0, 0, 0],
-  ':': [0, 0x0c, 0x0c, 0, 0x0c, 0x0c, 0],
-  ';': [0, 0x0c, 0x0c, 0, 0x0c, 0x04, 0x08],
-  '!': [0x04, 0x04, 0x04, 0x04, 0x04, 0, 0x04],
-  '?': [0x0e, 0x11, 0x01, 0x02, 0x04, 0, 0x04],
-  '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
-  ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
-  '/': [0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10],
-  '&': [0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d],
-  '%': [0x19, 0x19, 0x02, 0x04, 0x08, 0x13, 0x13],
-  '+': [0, 0x04, 0x04, 0x1f, 0x04, 0x04, 0],
-  '=': [0, 0, 0x1f, 0, 0x1f, 0, 0],
-  '"': [0x0a, 0x0a, 0x0a, 0, 0, 0, 0],
-  '•': [0, 0x04, 0x0e, 0x0e, 0x0e, 0x04, 0],
+// region colours: Asia, Europe, N.America, LatAm, MidEast, Africa, Pacific
+const RC = {
+  ASIA: [194, 94, 30],
+  EUROPE: [47, 95, 208],
+  NAMER: [14, 124, 107],
+  LATAM: [123, 75, 166],
+  MIDEAST: [166, 124, 0],
+  AFRICA: [46, 125, 50],
+  PACIFIC: [2, 132, 199],
 };
 
-const BLANK = [0, 0, 0, 0, 0, 0, 0];
-
-function textWidth(text: string, scale: number): number {
-  const t = text.toUpperCase();
-  if (t.length === 0) return 0;
-  return t.length * 6 * scale - scale;
+// ---------- image buffer ----------
+const buf = new Uint8Array(W * H * 3);
+function px(x: number, y: number, c: number[]): void {
+  const xi = Math.round(x);
+  const yi = Math.round(y);
+  if (xi < 0 || yi < 0 || xi >= W || yi >= H) return;
+  const o = (yi * W + xi) * 3;
+  buf[o] = c[0]; buf[o + 1] = c[1]; buf[o + 2] = c[2];
 }
-
-function drawText(text: string, x: number, y: number, scale: number, c: RGB): void {
-  const t = text.toUpperCase();
-  let cx = x;
-  for (const ch of t) {
-    const glyph = FONT[ch] ?? BLANK;
-    for (let r = 0; r < 7; r++) {
-      const bits = glyph[r];
-      for (let col = 0; col < 5; col++) {
-        if (bits & (1 << (4 - col))) {
-          fillRect(cx + col * scale, y + r * scale, scale, scale, c);
-        }
+function rect(x: number, y: number, w: number, h: number, c: number[]): void {
+  const x0 = Math.max(0, Math.floor(x));
+  const y0 = Math.max(0, Math.floor(y));
+  const x1 = Math.min(W, Math.ceil(x + w));
+  const y1 = Math.min(H, Math.ceil(y + h));
+  for (let yy = y0; yy < y1; yy++) {
+    for (let xx = x0; xx < x1; xx++) {
+      const o = (yy * W + xx) * 3;
+      buf[o] = c[0]; buf[o + 1] = c[1]; buf[o + 2] = c[2];
+    }
+  }
+}
+function line(x0: number, y0: number, x1: number, y1: number, c: number[]): void {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const n = Math.max(Math.abs(dx), Math.abs(dy), 1);
+  for (let i = 0; i <= n; i++) px(x0 + (dx * i) / n, y0 + (dy * i) / n, c);
+}
+function circle(cx: number, cy: number, r: number, c: number[]): void {
+  for (let y = -r; y <= r; y++) {
+    for (let x = -r; x <= r; x++) {
+      if (x * x + y * y <= r * r) px(cx + x, cy + y, c);
+    }
+  }
+}
+function ring(cx: number, cy: number, r: number, c: number[]): void {
+  for (let a = 0; a < 360; a += 2) {
+    const t = (a * Math.PI) / 180;
+    px(cx + Math.cos(t) * r, cy + Math.sin(t) * r, c);
+  }
+}
+function tri(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number, c: number[]): void {
+  line(x0, y0, x1, y1, c);
+  line(x1, y1, x2, y2, c);
+  line(x2, y2, x0, y0, c);
+  const minY = Math.ceil(Math.min(y0, y1, y2));
+  const maxY = Math.floor(Math.max(y0, y1, y2));
+  for (let y = minY; y <= maxY; y++) {
+    const xs: number[] = [];
+    const edges: [number, number, number, number][] = [[x0, y0, x1, y1], [x1, y1, x2, y2], [x2, y2, x0, y0]];
+    for (const [ax, ay, bx, by] of edges) {
+      if ((ay <= y && by > y) || (by <= y && ay > y)) {
+        xs.push(ax + ((y - ay) * (bx - ax)) / (by - ay));
       }
     }
-    cx += 6 * scale;
-  }
-}
-
-function drawTextCentered(text: string, cx: number, y: number, scale: number, c: RGB): void {
-  drawText(text, cx - Math.floor(textWidth(text, scale) / 2), y, scale, c);
-}
-
-// Greedy word wrap; returns lines that fit maxWidth at the given scale.
-function wrapText(text: string, maxWidth: number, scale: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let line = '';
-  for (const word of words) {
-    const trial = line === '' ? word : line + ' ' + word;
-    if (textWidth(trial, scale) <= maxWidth || line === '') {
-      line = trial;
-    } else {
-      lines.push(line);
-      line = word;
+    if (xs.length >= 2) {
+      xs.sort((a, b) => a - b);
+      for (let x = Math.ceil(xs[0]); x <= Math.floor(xs[xs.length - 1]); x++) px(x, y, c);
     }
   }
-  if (line !== '') lines.push(line);
-  return lines;
+}
+function outline(x: number, y: number, w: number, h: number, c: number[], t = 1): void {
+  rect(x, y, w, t, c);
+  rect(x, y + h - t, w, t, c);
+  rect(x, y, t, h, c);
+  rect(x + w - t, y, t, h, c);
 }
 
-function drawWrapped(
-  text: string, x: number, y: number, maxWidth: number, scale: number, lh: number, c: RGB,
-): number {
-  const lines = wrapText(text, maxWidth, scale);
-  lines.forEach((line, i) => drawText(line, x, y + i * lh, scale, c));
-  return lines.length;
+// ---------- PNG encode ----------
+const CRC_TABLE: number[] = [];
+for (let n = 0; n < 256; n++) {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  CRC_TABLE[n] = c >>> 0;
 }
-
-// ---------------------------------------------------------------------------
-// PNG encoder (RGB, no interlace), hand-rolled with node:zlib.
-// ---------------------------------------------------------------------------
-
-const CRC_TABLE: Uint32Array = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
-
-function crc32(buf: Buffer): number {
+function crc32(b: Buffer): number {
   let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
-
 function chunk(type: string, data: Buffer): Buffer {
-  const out = Buffer.alloc(8 + data.length + 4);
+  const out = Buffer.alloc(12 + data.length);
   out.writeUInt32BE(data.length, 0);
   out.write(type, 4, 'ascii');
   data.copy(out, 8);
   out.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])), 8 + data.length);
   return out;
 }
-
 function encodePNG(): Buffer {
-  const raw = Buffer.alloc(H * (1 + W * 3));
+  const raw = Buffer.alloc((W * 3 + 1) * H);
   for (let y = 0; y < H; y++) {
-    raw[y * (1 + W * 3)] = 0; // filter: none
-    raw.set(px.subarray(y * W * 3, (y + 1) * W * 3), y * (1 + W * 3) + 1);
+    raw[y * (W * 3 + 1)] = 0;
+    Buffer.from(buf.buffer, y * W * 3, W * 3).copy(raw, y * (W * 3 + 1) + 1);
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(W, 0);
   ihdr.writeUInt32BE(H, 4);
   ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // colour type: RGB
-  ihdr[10] = 0; // compression
-  ihdr[11] = 0; // filter
-  ihdr[12] = 0; // interlace
+  ihdr[9] = 2; // RGB
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  return Buffer.concat([
-    sig,
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
+  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// ---------------------------------------------------------------------------
-// Pictograms (flat colour, rectangles / circles / triangles only)
-// ---------------------------------------------------------------------------
-
-// Small status badge: filled box + text, drawn at the top-right of a picture.
-function drawBadge(text: string, xRight: number, y: number, bg: RGB): void {
-  const w = textWidth(text, 2) + 10;
-  fillRect(xRight - w, y, w, 18, bg);
-  drawText(text, xRight - w + 5, y + 2, 2, WHITE);
+// ---------- 5x7 bitmap font ----------
+// Each glyph: 7 rows of 5 bits, packed as 7 chars; char value v: '0'-'9' = 0-9, 'a'-'v' = 10-31.
+const FONT: Record<string, string> = {
+  A: 'ehhvhhh', B: 'uhhuhhu', C: 'ehggghe', D: 'uhhhhhu', E: 'vgguggv',
+  F: 'vgguggg', G: 'ehgnhhf', H: 'hhhvhhh', I: 'e44444e', J: '72222ic',
+  K: 'hikokih', L: 'ggggggv', M: 'hrllhhh', N: 'hpljhhh', O: 'ehhhhhe',
+  P: 'uhhuggg', Q: 'ehhhlid', R: 'uhhukih', S: 'fgge11u', T: 'v444444',
+  U: 'hhhhhhe', V: 'hhhhha4', W: 'hhhllla', X: 'hha4ahh', Y: 'hha4444',
+  Z: 'v1248gv',
+  '0': 'ehjlphe', '1': '4c4444e', '2': 'eh168gv', '3': 'v2421he',
+  '4': '26aiv22', '5': 'vgu11he', '6': '68guhhe', '7': 'v124888',
+  '8': 'ehhehhe', '9': 'ehhf12c',
+  ' ': '0000000', '.': '00000cc', ',': '0000c48', '-': '000v000',
+  "'": '4480000', ':': '0cc0cc0', ';': '0cc0c48', '(': '2488842',
+  ')': '8422248', '/': '11248gg', '+': '044v440', '%': 'pp248jj',
+  '&': 'cik8lid', '!': '4444404', '?': 'eh12404', '=': '00v0v00',
+  '•': '004ee40', '—': '000vv00', '"': 'aaa0000', '$': '4fke5u4',
+  _: '000000v', '[': 'e88888e', ']': 'e22222e', '*': '04lel40',
+};
+function glyphVal(ch: string): number {
+  if (ch >= '0' && ch <= '9') return ch.charCodeAt(0) - 48;
+  return ch.charCodeAt(0) - 87; // 'a' -> 10
+}
+function charW(scale: number, bold: boolean): number {
+  return 6 * scale + (bold ? 1 : 0);
+}
+function textW(s: string, scale: number, bold = false): number {
+  let w = 0;
+  for (const ch of s) w += charW(scale, bold);
+  return w - (bold ? 1 : 0);
+}
+// Draw one glyph. serif: bold + a slab foot on the bottom row (headline face).
+function drawGlyph(ch: string, x: number, y: number, scale: number, c: number[], bold: boolean, serif: boolean): void {
+  const g = FONT[ch] ?? FONT[' '];
+  const dx = bold ? 1 : 0;
+  for (let pass = 0; pass <= dx; pass++) {
+    for (let r = 0; r < 7; r++) {
+      const bits = glyphVal(g[r]);
+      for (let col = 0; col < 5; col++) {
+        if (bits & (1 << (4 - col))) {
+          rect(x + pass + col * scale, y + r * scale, scale, scale, c);
+        }
+      }
+    }
+  }
+  if (serif) {
+    const bits = glyphVal(g[6]);
+    if (bits !== 0 && /[A-Z0-9]/.test(ch)) {
+      rect(x - 1, y + 6 * scale, 5 * scale + 2, Math.max(1, Math.floor(scale / 2)), c);
+    }
+  }
+}
+function drawText(s: string, x: number, y: number, scale: number, c: number[], opts: { bold?: boolean; serif?: boolean; align?: 'left' | 'center' | 'right' } = {}): number {
+  const bold = opts.bold ?? false;
+  const serif = opts.serif ?? false;
+  let x0 = x;
+  const w = textW(s, scale, bold);
+  if (opts.align === 'center') x0 = x - Math.floor(w / 2);
+  if (opts.align === 'right') x0 = x - w;
+  let cx = x0;
+  for (const ch of s) {
+    drawGlyph(ch, cx, y, scale, c, bold, serif);
+    cx += charW(scale, bold);
+  }
+  return w;
+}
+// Greedy wrap; avoids a lone short word on the last line.
+function wrapText(s: string, maxW: number, scale: number, bold = false): string[] {
+  const words = s.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const trial = cur ? cur + ' ' + w : w;
+    if (textW(trial, scale, bold) <= maxW || !cur) cur = trial;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length >= 2) {
+    const last = lines[lines.length - 1];
+    if (last.split(' ').length === 1 && last.length <= 4) {
+      const prev = lines[lines.length - 2].split(' ');
+      if (prev.length > 1) {
+        const moved = prev.pop()!;
+        lines[lines.length - 2] = prev.join(' ');
+        lines[lines.length - 1] = moved + ' ' + last;
+      }
+    }
+  }
+  return lines;
 }
 
-// --- Lead pictures (312 x 96) ---
-
-function drawHormuz(x: number, y: number, w: number, h: number): void {
-  frameRect(x, y, w, h, 3, INK);
-  const ix = x + 3;
-  const iy = y + 3;
-  const iw = w - 6;
-  const ih = h - 6;
-  const horizon = iy + Math.floor(ih * 0.45);
-  fillRect(ix, iy, iw, horizon - iy, SKY);
-  fillCircle(ix + iw - 34, iy + 22, 14, YELLOW);
-  fillCircle(ix + 46, iy + 18, 8, WHITE);
-  fillRect(ix + 38, iy + 16, 34, 7, WHITE);
-  fillRect(ix, horizon, iw, iy + ih - horizon, SEA);
-  fillRect(ix + 16, horizon + 18, 52, 3, WHITE);
-  fillRect(ix + iw - 80, horizon + 34, 60, 3, WHITE);
-  // Two tankers, one burning.
-  const shipY = horizon + 22;
-  fillRect(ix + 30, shipY, 110, 22, DARK);
-  fillTriangle(ix + 30, shipY, ix + 30, shipY + 22, ix + 14, shipY + 22, DARK);
-  fillRect(ix + 44, shipY - 14, 24, 14, [178, 52, 44]);
-  fillRect(ix + 72, shipY - 14, 24, 14, [43, 110, 138]);
-  fillRect(ix + 100, shipY - 14, 24, 14, [201, 162, 39]);
-  fillRect(ix + 168, shipY + 6, 96, 18, DARK);
-  fillTriangle(ix + 264, shipY + 6, ix + 264, shipY + 24, ix + 282, shipY + 24, DARK);
-  fillRect(ix + 180, shipY - 8, 22, 14, [178, 52, 44]);
-  fillRect(ix + 206, shipY - 8, 22, 14, [201, 162, 39]);
-  // Explosion burst between the tankers.
-  fillCircle(ix + 152, shipY - 6, 13, ORANGE);
-  fillCircle(ix + 152, shipY - 6, 7, YELLOW);
-  fillTriangle(ix + 152, shipY - 26, ix + 142, shipY - 8, ix + 162, shipY - 8, ORANGE);
-  fillTriangle(ix + 132, shipY - 6, ix + 152, shipY - 16, ix + 152, shipY + 4, ORANGE);
-  fillTriangle(ix + 172, shipY - 6, ix + 152, shipY - 16, ix + 152, shipY + 4, ORANGE);
-  // Smoke + drifting mines (small spiked dots).
-  fillCircle(ix + 140, shipY - 26, 7, [120, 120, 118]);
-  fillCircle(ix + 162, shipY - 30, 8, [140, 140, 138]);
-  fillCircle(ix + 60, horizon + 40, 3, INK);
-  fillCircle(ix + 250, horizon + 44, 3, INK);
+// ---------- scene painters ----------
+// Every painter draws inside (x, y, w, h) with relative coordinates.
+function skyBands(x: number, y: number, w: number, h: number, top: number[], bot: number[]): void {
+  rect(x, y, w, Math.ceil(h * 0.55), top);
+  rect(x, y + Math.ceil(h * 0.55), w, h - Math.ceil(h * 0.55), bot);
+}
+function flame(fx: number, fy: number, s: number): void {
+  tri(fx, fy - s * 2, fx - s, fy, fx + s, fy, [255, 140, 0]);
+  tri(fx, fy - s * 1.2, fx - s * 0.6, fy, fx + s * 0.6, fy, [255, 210, 60]);
+}
+function smokePuff(sx: number, sy: number, s: number): void {
+  circle(sx, sy, s, [120, 120, 118]);
+  circle(sx + s, sy - s * 0.5, s * 0.8, [140, 140, 136]);
+  circle(sx - s, sy - s * 0.6, s * 0.7, [100, 100, 98]);
+}
+function windows(bx: number, by: number, bw: number, bh: number, cols: number, rows: number, c: number[]): void {
+  const cw = bw / cols;
+  const ch = bh / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      if ((r * 7 + col * 3) % 4 !== 0) rect(bx + col * cw + cw * 0.2, by + r * ch + ch * 0.25, cw * 0.55, ch * 0.5, c);
+    }
+  }
+}
+// Cargo ship (tariffs) / oil tanker (Hormuz) — kind 'cargo' | 'tanker'
+function sceneShip(x: number, y: number, w: number, h: number, kind: 'cargo' | 'tanker'): void {
+  skyBands(x, y, w, h, [140, 190, 215], SEA);
+  const seaY = y + h * 0.62;
+  rect(x, seaY, w, h - (seaY - y), SEA);
+  const hullY = seaY - h * 0.16;
+  // hull
+  tri(x + w * 0.06, hullY, x + w * 0.94, hullY, x + w * 0.86, seaY + h * 0.12, [30, 30, 34]);
+  rect(x + w * 0.06, hullY, w * 0.8, h * 0.1, [30, 30, 34]);
+  if (kind === 'cargo') {
+    const cols = [[193, 39, 45], [214, 164, 32], [47, 95, 208], [46, 125, 50]];
+    for (let i = 0; i < 4; i++) {
+      rect(x + w * (0.12 + i * 0.19), hullY - h * 0.34, w * 0.16, h * 0.32, cols[i]);
+      rect(x + w * (0.12 + i * 0.19), hullY - h * 0.34, w * 0.16, 2, WHITE);
+    }
+    // bridge
+    rect(x + w * 0.86, hullY - h * 0.42, w * 0.08, h * 0.4, WHITE);
+    windows(x + w * 0.86, hullY - h * 0.4, w * 0.08, h * 0.16, 2, 2, INK);
+  } else {
+    // tanker tanks
+    for (let i = 0; i < 3; i++) {
+      circle(x + w * (0.22 + i * 0.26), hullY - h * 0.1, h * 0.17, [200, 200, 196]);
+      rect(x + w * (0.22 + i * 0.26) - h * 0.17, hullY - h * 0.1, h * 0.34, h * 0.1, [200, 200, 196]);
+    }
+    rect(x + w * 0.86, hullY - h * 0.3, w * 0.06, h * 0.28, [160, 40, 40]);
+    flame(x + w * 0.55, hullY - h * 0.28, Math.max(4, h * 0.1));
+    smokePuff(x + w * 0.55, hullY - h * 0.48, Math.max(3, h * 0.07));
+    flame(x + w * 0.3, hullY - h * 0.2, Math.max(3, h * 0.07));
+  }
+  // wake
+  line(x + w * 0.1, seaY + h * 0.2, x + w * 0.5, seaY + h * 0.2, WHITE);
+  line(x + w * 0.55, seaY + h * 0.28, x + w * 0.9, seaY + h * 0.28, WHITE);
+}
+function sceneRefinery(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [232, 180, 120], [120, 90, 70]);
+  const gy = y + h * 0.72;
+  rect(x, gy, w, h - (gy - y), [60, 52, 44]);
+  // towers
+  for (let i = 0; i < 3; i++) {
+    const tx = x + w * (0.12 + i * 0.28);
+    rect(tx, gy - h * 0.5, w * 0.09, h * 0.5, [90, 88, 84]);
+    rect(tx - w * 0.02, gy - h * 0.58, w * 0.13, h * 0.08, [70, 68, 64]);
+  }
+  // pipes
+  rect(x + w * 0.1, gy - h * 0.12, w * 0.8, h * 0.06, [110, 108, 100]);
+  // flare stack
+  rect(x + w * 0.82, gy - h * 0.62, w * 0.05, h * 0.62, [80, 78, 72]);
+  flame(x + w * 0.845, gy - h * 0.62, Math.max(4, h * 0.09));
+  smokePuff(x + w * 0.3, gy - h * 0.62, Math.max(3, h * 0.07));
+  smokePuff(x + w * 0.55, gy - h * 0.55, Math.max(3, h * 0.06));
+  // drone dots
+  circle(x + w * 0.7, y + h * 0.18, 2, INK);
+  line(x + w * 0.7 - 4, y + h * 0.18, x + w * 0.7 + 4, y + h * 0.18, INK);
+}
+function sceneRocket(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, [16, 24, 48]);
+  for (let i = 0; i < 14; i++) {
+    const sx = x + ((i * 37) % Math.max(10, w - 6)) + 3;
+    const sy = y + ((i * 23) % Math.max(10, h - 6)) + 3;
+    px(sx, sy, WHITE);
+    if (i % 3 === 0) px(sx + 1, sy, WHITE);
+  }
+  // station ring
+  ring(x + w * 0.72, y + h * 0.3, Math.max(6, h * 0.12), GOLD);
+  rect(x + w * 0.6, y + h * 0.28, w * 0.24, 2, GOLD);
+  // rocket
+  const rx = x + w * 0.32;
+  const ry = y + h * 0.18;
+  rect(rx, ry, w * 0.1, h * 0.5, WHITE);
+  tri(rx, ry, rx + w * 0.05, ry - h * 0.16, rx + w * 0.1, ry, RED);
+  rect(rx - w * 0.04, ry + h * 0.36, w * 0.03, h * 0.14, RED);
+  rect(rx + w * 0.11, ry + h * 0.36, w * 0.03, h * 0.14, RED);
+  flame(rx + w * 0.05, ry + h * 0.52, Math.max(4, h * 0.08));
+  circle(x + w * 0.85, y + h * 0.75, Math.max(5, h * 0.1), [200, 200, 190]);
+}
+function sceneChart(x: number, y: number, w: number, h: number, down: boolean, col: number[]): void {
+  rect(x, y, w, h, PAPER);
+  const gy = y + h * 0.8;
+  line(x + w * 0.08, y + h * 0.1, x + w * 0.08, gy, INK);
+  line(x + w * 0.08, gy, x + w * 0.95, gy, INK);
+  const pts: [number, number][] = down
+    ? [[0.12, 0.25], [0.3, 0.3], [0.48, 0.5], [0.66, 0.45], [0.82, 0.72]]
+    : [[0.12, 0.7], [0.3, 0.6], [0.48, 0.4], [0.66, 0.45], [0.82, 0.2]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    line(x + w * pts[i][0], y + h * pts[i][1], x + w * pts[i + 1][0], y + h * pts[i + 1][1], col);
+    line(x + w * pts[i][0], y + h * pts[i][1] + 1, x + w * pts[i + 1][0], y + h * pts[i + 1][1] + 1, col);
+  }
+  for (let i = 0; i < pts.length; i++) circle(x + w * pts[i][0], y + h * pts[i][1], 2, col);
+  // bars
+  for (let i = 0; i < 5; i++) {
+    const bh = h * (down ? 0.12 + i * 0.1 : 0.5 - i * 0.07);
+    rect(x + w * (0.16 + i * 0.16), gy - bh, w * 0.07, bh, i % 2 ? [180, 180, 175] : col);
+  }
+}
+function sceneMine(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, [40, 32, 26]);
+  // shaft
+  rect(x + w * 0.3, y, w * 0.4, h, [24, 18, 14]);
+  rect(x + w * 0.3, y, 2, h, [90, 70, 50]);
+  rect(x + w * 0.7 - 2, y, 2, h, [90, 70, 50]);
+  // water at bottom
+  rect(x, y + h * 0.78, w, h * 0.22, [30, 70, 110]);
+  line(x, y + h * 0.78, x + w, y + h * 0.78, [120, 180, 220]);
+  // helmet lamp
+  circle(x + w * 0.5, y + h * 0.45, Math.max(3, h * 0.06), GOLD);
+  circle(x + w * 0.5, y + h * 0.45, Math.max(6, h * 0.12), [214, 164, 32]);
+  // rope
+  line(x + w * 0.5, y, x + w * 0.5, y + h * 0.4, [180, 160, 120]);
+  // surface: trees + rescuer
+  rect(x, y, w, h * 0.08, [60, 110, 60]);
+  tri(x + w * 0.15, y + h * 0.3, x + w * 0.1, y + h * 0.45, x + w * 0.2, y + h * 0.45, [240, 120, 30]);
+}
+function sceneCrowd(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [120, 140, 120]);
+  const gy = y + h * 0.7;
+  rect(x, gy, w, h - (gy - y), [90, 90, 84]);
+  // banner
+  rect(x + w * 0.15, y + h * 0.12, w * 0.7, h * 0.22, WHITE);
+  outline(x + w * 0.15, y + h * 0.12, w * 0.7, h * 0.22, RED, 2);
+  // heads
+  for (let i = 0; i < 7; i++) {
+    const hx = x + w * (0.08 + i * 0.13);
+    circle(hx, gy - h * 0.08, Math.max(3, h * 0.07), [60 + (i % 3) * 30, 50, 45]);
+    rect(hx - w * 0.05, gy, w * 0.1, h * 0.3, [40 + (i % 4) * 40, 60, 90]);
+  }
+  // raised placards
+  rect(x + w * 0.3, gy - h * 0.3, w * 0.12, h * 0.14, RED);
+  rect(x + w * 0.62, gy - h * 0.34, w * 0.12, h * 0.14, GOLD);
+}
+function sceneJets(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [60, 80, 120], [90, 100, 130]);
+  const gy = y + h * 0.72;
+  rect(x, gy, w, h - (gy - y), [70, 70, 66]);
+  line(x, gy, x + w, gy, WHITE);
+  for (let i = 0; i < 2; i++) {
+    const jx = x + w * (0.2 + i * 0.42);
+    const jy = y + h * (0.3 + i * 0.12);
+    // fuselage + wings
+    rect(jx, jy, w * 0.22, h * 0.07, [200, 200, 195]);
+    tri(jx + w * 0.22, jy, jx + w * 0.3, jy + h * 0.035, jx + w * 0.22, jy + h * 0.07, [200, 200, 195]);
+    rect(jx + w * 0.08, jy - h * 0.08, w * 0.06, h * 0.08, [180, 180, 175]);
+    rect(jx + w * 0.08, jy + h * 0.07, w * 0.06, h * 0.08, [180, 180, 175]);
+    flame(jx - 2, jy + h * 0.035, Math.max(3, h * 0.05));
+  }
+  smokePuff(x + w * 0.75, y + h * 0.5, Math.max(3, h * 0.06));
+}
+function sceneCity(x: number, y: number, w: number, h: number, smoke: boolean): void {
+  skyBands(x, y, w, h, [200, 170, 140], [140, 130, 120]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [80, 76, 70]);
+  const bw = w / 5;
+  const hs = [0.45, 0.6, 0.35, 0.55, 0.4];
+  for (let i = 0; i < 5; i++) {
+    const bx = x + i * bw;
+    const bh = h * hs[i];
+    rect(bx + 1, gy - bh, bw - 2, bh, [50, 48, 52]);
+    windows(bx + 2, gy - bh + 2, bw - 4, bh - 4, 2, 3, GOLD);
+  }
+  if (smoke) {
+    smokePuff(x + w * 0.3, gy - h * 0.55, Math.max(3, h * 0.07));
+    flame(x + w * 0.3, gy - h * 0.3, Math.max(3, h * 0.06));
+  }
+}
+function sceneFlags(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, [232, 226, 210]);
+  const cols = [[193, 39, 45], [47, 95, 208], [214, 164, 32], [46, 125, 50], [123, 75, 166], [14, 124, 107]];
+  for (let i = 0; i < 6; i++) {
+    const fx = x + w * (0.06 + i * 0.16);
+    rect(fx, y + h * 0.2, w * 0.11, h * 0.4, cols[i]);
+    rect(fx, y + h * 0.2, w * 0.11, 2, WHITE);
+    line(fx + w * 0.055, y + h * 0.2, fx + w * 0.055, y + h * 0.85, INK);
+  }
+  // document
+  rect(x + w * 0.62, y + h * 0.55, w * 0.3, h * 0.35, WHITE);
+  outline(x + w * 0.62, y + h * 0.55, w * 0.3, h * 0.35, INK, 1);
+  line(x + w * 0.66, y + h * 0.65, x + w * 0.88, y + h * 0.65, INK);
+  line(x + w * 0.66, y + h * 0.75, x + w * 0.88, y + h * 0.75, INK);
+}
+function sceneParliament(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [150, 160, 150]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [100, 96, 88]);
+  // columns
+  for (let i = 0; i < 4; i++) {
+    rect(x + w * (0.1 + i * 0.22), gy - h * 0.45, w * 0.07, h * 0.45, [220, 215, 200]);
+  }
+  tri(x + w * 0.05, gy - h * 0.45, x + w * 0.5, gy - h * 0.68, x + w * 0.95, gy - h * 0.45, [200, 195, 180]);
+  rect(x, gy - h * 0.06, w, h * 0.06, [220, 215, 200]);
+  // flag
+  line(x + w * 0.5, gy - h * 0.95, x + w * 0.5, gy - h * 0.68, INK);
+  rect(x + w * 0.5, gy - h * 0.95, w * 0.14, h * 0.12, [193, 39, 45]);
+}
+function sceneTree(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [140, 170, 120]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [110, 140, 90]);
+  circle(x + w * 0.35, gy - h * 0.3, Math.max(5, h * 0.16), [46, 125, 50]);
+  circle(x + w * 0.55, gy - h * 0.42, Math.max(4, h * 0.13), [60, 150, 60]);
+  rect(x + w * 0.42, gy - h * 0.18, w * 0.05, h * 0.18, [120, 90, 50]);
+  // gavel
+  line(x + w * 0.7, gy - h * 0.1, x + w * 0.88, gy - h * 0.28, [120, 90, 50]);
+  rect(x + w * 0.82, gy - h * 0.36, w * 0.1, h * 0.08, [90, 60, 30]);
+}
+function scenePlane(x: number, y: number, w: number, h: number, crash: boolean): void {
+  skyBands(x, y, w, h, SKY, crash ? SEA : [180, 190, 200]);
+  if (crash) {
+    const wy = y + h * 0.68;
+    rect(x, wy, w, h - (wy - y), SEA);
+    // plane nose-down into water
+    tri(x + w * 0.55, wy - h * 0.3, x + w * 0.75, wy, x + w * 0.5, wy, [220, 220, 215]);
+    rect(x + w * 0.52, wy - h * 0.42, w * 0.06, h * 0.14, [200, 200, 195]);
+    circle(x + w * 0.62, wy + h * 0.05, Math.max(3, h * 0.06), WHITE);
+    circle(x + w * 0.7, wy + h * 0.1, Math.max(2, h * 0.05), WHITE);
+    line(x + w * 0.1, wy + h * 0.12, x + w * 0.45, wy + h * 0.12, WHITE);
+  } else {
+    const py = y + h * 0.4;
+    rect(x + w * 0.15, py, w * 0.6, h * 0.09, WHITE);
+    tri(x + w * 0.75, py, x + w * 0.88, py + h * 0.045, x + w * 0.75, py + h * 0.09, WHITE);
+    rect(x + w * 0.35, py - h * 0.12, w * 0.1, h * 0.12, [200, 200, 195]);
+    rect(x + w * 0.35, py + h * 0.09, w * 0.1, h * 0.12, [200, 200, 195]);
+    circle(x + w * 0.2, py + h * 0.045, 2, INK);
+    // runway
+    rect(x, y + h * 0.78, w, h * 0.1, [60, 60, 60]);
+    for (let i = 0; i < 5; i++) rect(x + w * (0.1 + i * 0.18), y + h * 0.81, w * 0.08, 2, WHITE);
+  }
+}
+function sceneChip(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, [24, 28, 40]);
+  const cx = x + w * 0.5;
+  const cy = y + h * 0.5;
+  const s = Math.min(w, h) * 0.34;
+  rect(cx - s, cy - s, s * 2, s * 2, [30, 60, 90]);
+  outline(cx - s, cy - s, s * 2, s * 2, GOLD, 2);
+  rect(cx - s * 0.5, cy - s * 0.5, s, s, [60, 120, 160]);
+  for (let i = -1; i <= 1; i++) {
+    line(cx + i * s * 0.7, cy - s, cx + i * s * 0.7, cy - s - h * 0.12, GOLD);
+    line(cx + i * s * 0.7, cy + s, cx + i * s * 0.7, cy + s + h * 0.12, GOLD);
+  }
+  circle(cx + w * 0.32, cy - h * 0.3, 2, [255, 80, 80]);
+}
+function sceneHostage(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [190, 170, 150], [150, 140, 130]);
+  const gy = y + h * 0.72;
+  rect(x, gy, w, h - (gy - y), [90, 86, 80]);
+  // store
+  rect(x + w * 0.1, gy - h * 0.5, w * 0.8, h * 0.5, [200, 60, 60]);
+  rect(x + w * 0.1, gy - h * 0.5, w * 0.8, h * 0.1, WHITE);
+  windows(x + w * 0.14, gy - h * 0.36, w * 0.72, h * 0.3, 5, 2, [255, 220, 150]);
+  // shield
+  circle(x + w * 0.5, gy - h * 0.62, Math.max(4, h * 0.09), [47, 95, 208]);
+  rect(x + w * 0.48, gy - h * 0.66, w * 0.04, h * 0.08, WHITE);
+}
+function sceneFactory(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [160, 160, 150]);
+  const gy = y + h * 0.7;
+  rect(x, gy, w, h - (gy - y), [100, 96, 88]);
+  rect(x + w * 0.12, gy - h * 0.35, w * 0.5, h * 0.35, [150, 60, 60]);
+  tri(x + w * 0.12, gy - h * 0.35, x + w * 0.37, gy - h * 0.55, x + w * 0.62, gy - h * 0.35, [120, 50, 50]);
+  rect(x + w * 0.68, gy - h * 0.55, w * 0.08, h * 0.55, [120, 115, 105]);
+  smokePuff(x + w * 0.72, gy - h * 0.62, Math.max(3, h * 0.06));
+  // gear
+  circle(x + w * 0.82, gy - h * 0.2, Math.max(4, h * 0.09), GOLD);
+  circle(x + w * 0.82, gy - h * 0.2, Math.max(2, h * 0.04), INK);
+}
+function sceneReport(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, [232, 226, 210]);
+  rect(x + w * 0.18, y + h * 0.08, w * 0.5, h * 0.84, WHITE);
+  outline(x + w * 0.18, y + h * 0.08, w * 0.5, h * 0.84, INK, 1);
+  for (let i = 0; i < 5; i++) {
+    line(x + w * 0.24, y + h * (0.22 + i * 0.13), x + w * (0.62 - (i % 2) * 0.1), y + h * (0.22 + i * 0.13), INK);
+  }
+  // people silhouettes
+  for (let i = 0; i < 3; i++) {
+    const hx = x + w * (0.76 + i * 0.08);
+    circle(hx, y + h * 0.3, Math.max(3, h * 0.06), [90, 50, 60]);
+    rect(hx - w * 0.04, y + h * 0.38, w * 0.08, h * 0.4, [90, 50, 60]);
+  }
+}
+function scenePort(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [220, 170, 130], SEA);
+  const gy = y + h * 0.7;
+  rect(x, gy, w, h - (gy - y), [80, 76, 70]);
+  // cranes
+  for (let i = 0; i < 2; i++) {
+    const cx = x + w * (0.15 + i * 0.4);
+    rect(cx, gy - h * 0.5, w * 0.04, h * 0.5, [60, 60, 58]);
+    line(cx, gy - h * 0.5, cx + w * 0.3, gy - h * 0.28, [60, 60, 58]);
+    line(cx + w * 0.3, gy - h * 0.28, cx + w * 0.3, gy - h * 0.12, [60, 60, 58]);
+  }
+  // containers + blast
+  rect(x + w * 0.55, gy - h * 0.18, w * 0.16, h * 0.18, [193, 39, 45]);
+  rect(x + w * 0.73, gy - h * 0.12, w * 0.16, h * 0.12, [214, 164, 32]);
+  flame(x + w * 0.63, gy - h * 0.2, Math.max(4, h * 0.09));
+  smokePuff(x + w * 0.63, gy - h * 0.42, Math.max(3, h * 0.07));
+}
+function sceneDrone(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [90, 110, 150], [140, 150, 170]);
+  const cx = x + w * 0.5;
+  const cy = y + h * 0.42;
+  rect(cx - w * 0.14, cy - h * 0.04, w * 0.28, h * 0.08, INK);
+  line(cx - w * 0.2, cy - h * 0.12, cx + w * 0.2, cy - h * 0.12, INK);
+  line(cx - w * 0.2, cy + h * 0.12, cx + w * 0.2, cy + h * 0.12, INK);
+  circle(cx - w * 0.2, cy - h * 0.12, Math.max(3, h * 0.05), [80, 80, 78]);
+  circle(cx + w * 0.2, cy - h * 0.12, Math.max(3, h * 0.05), [80, 80, 78]);
+  circle(cx - w * 0.2, cy + h * 0.12, Math.max(3, h * 0.05), [80, 80, 78]);
+  circle(cx + w * 0.2, cy + h * 0.12, Math.max(3, h * 0.05), [80, 80, 78]);
+  circle(cx, cy, Math.max(2, h * 0.04), RED);
+  // ground
+  rect(x, y + h * 0.78, w, h * 0.22, [120, 110, 90]);
+}
+function sceneFire(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [40, 36, 40], [90, 70, 60]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [50, 48, 46]);
+  // road
+  rect(x, gy - h * 0.05, w, h * 0.08, [70, 70, 68]);
+  // burning tanker
+  rect(x + w * 0.15, gy - h * 0.28, w * 0.5, h * 0.2, [200, 200, 195]);
+  circle(x + w * 0.25, gy - h * 0.08, Math.max(3, h * 0.05), INK);
+  circle(x + w * 0.55, gy - h * 0.08, Math.max(3, h * 0.05), INK);
+  flame(x + w * 0.4, gy - h * 0.3, Math.max(5, h * 0.12));
+  flame(x + w * 0.6, gy - h * 0.26, Math.max(4, h * 0.09));
+  smokePuff(x + w * 0.4, gy - h * 0.55, Math.max(4, h * 0.08));
+  // fire truck
+  rect(x + w * 0.72, gy - h * 0.2, w * 0.2, h * 0.14, RED);
+  rect(x + w * 0.88, gy - h * 0.28, w * 0.08, h * 0.22, RED);
+}
+function sceneDesert(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, [230, 200, 150], [210, 170, 110]);
+  const gy = y + h * 0.65;
+  rect(x, gy, w, h - (gy - y), [200, 165, 105]);
+  // huts
+  for (let i = 0; i < 3; i++) {
+    const hx = x + w * (0.1 + i * 0.28);
+    rect(hx, gy - h * 0.14, w * 0.16, h * 0.14, [150, 120, 80]);
+    tri(hx - w * 0.02, gy - h * 0.14, hx + w * 0.08, gy - h * 0.3, hx + w * 0.18, gy - h * 0.14, [120, 90, 55]);
+  }
+  // drone above
+  const dx = x + w * 0.7;
+  const dy = y + h * 0.25;
+  rect(dx - w * 0.08, dy, w * 0.16, 3, INK);
+  circle(dx - w * 0.08, dy, 2, INK);
+  circle(dx + w * 0.08, dy, 2, INK);
+}
+function sceneCourt(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [160, 160, 150]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [100, 96, 88]);
+  for (let i = 0; i < 3; i++) {
+    rect(x + w * (0.14 + i * 0.3), gy - h * 0.45, w * 0.09, h * 0.45, [220, 215, 200]);
+  }
+  tri(x + w * 0.08, gy - h * 0.45, x + w * 0.5, gy - h * 0.66, x + w * 0.92, gy - h * 0.45, [200, 195, 180]);
+  // gavel
+  line(x + w * 0.68, gy - h * 0.12, x + w * 0.86, gy - h * 0.3, [120, 90, 50]);
+  rect(x + w * 0.8, gy - h * 0.38, w * 0.12, h * 0.08, [90, 60, 30]);
+}
+function sceneTreaty(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [150, 170, 160]);
+  const gy = y + h * 0.72;
+  rect(x, gy, w, h - (gy - y), [110, 130, 110]);
+  // two flags
+  line(x + w * 0.3, gy - h * 0.55, x + w * 0.3, gy - h * 0.1, INK);
+  rect(x + w * 0.3, gy - h * 0.55, w * 0.2, h * 0.16, [0, 60, 140]);
+  line(x + w * 0.66, gy - h * 0.55, x + w * 0.66, gy - h * 0.1, INK);
+  rect(x + w * 0.66, gy - h * 0.55, w * 0.2, h * 0.16, [0, 120, 90]);
+  // document between
+  rect(x + w * 0.42, gy - h * 0.3, w * 0.16, h * 0.22, WHITE);
+  outline(x + w * 0.42, gy - h * 0.3, w * 0.16, h * 0.22, INK, 1);
+}
+function scenePersonPlane(x: number, y: number, w: number, h: number): void {
+  skyBands(x, y, w, h, SKY, [170, 180, 190]);
+  const gy = y + h * 0.75;
+  rect(x, gy, w, h - (gy - y), [100, 100, 96]);
+  // plane
+  const py = y + h * 0.3;
+  rect(x + w * 0.15, py, w * 0.6, h * 0.08, WHITE);
+  tri(x + w * 0.75, py, x + w * 0.88, py + h * 0.04, x + w * 0.75, py + h * 0.08, WHITE);
+  rect(x + w * 0.35, py - h * 0.1, w * 0.08, h * 0.1, [200, 200, 195]);
+  // walking figure
+  circle(x + w * 0.5, gy - h * 0.22, Math.max(3, h * 0.06), INK);
+  rect(x + w * 0.47, gy - h * 0.16, w * 0.06, h * 0.16, INK);
+  line(x + w * 0.47, gy, x + w * 0.44, gy + h * 0.14, INK);
+  line(x + w * 0.53, gy, x + w * 0.56, gy + h * 0.14, INK);
+}
+// dispatch by scene key
+type SceneKey = 'ship' | 'tanker' | 'refinery' | 'rocket' | 'chartDown' | 'mine' | 'crowd' | 'jets' | 'city' | 'flags' | 'parliament' | 'tree' | 'planeCrash' | 'plane' | 'chip' | 'hostage' | 'factory' | 'report' | 'port' | 'drone' | 'fire' | 'desert' | 'court' | 'treaty' | 'personPlane';
+function paintScene(key: SceneKey, x: number, y: number, w: number, h: number): void {
+  switch (key) {
+    case 'ship': sceneShip(x, y, w, h, 'cargo'); break;
+    case 'tanker': sceneShip(x, y, w, h, 'tanker'); break;
+    case 'refinery': sceneRefinery(x, y, w, h); break;
+    case 'rocket': sceneRocket(x, y, w, h); break;
+    case 'chartDown': sceneChart(x, y, w, h, true, RED); break;
+    case 'mine': sceneMine(x, y, w, h); break;
+    case 'crowd': sceneCrowd(x, y, w, h); break;
+    case 'jets': sceneJets(x, y, w, h); break;
+    case 'city': sceneCity(x, y, w, h, true); break;
+    case 'flags': sceneFlags(x, y, w, h); break;
+    case 'parliament': sceneParliament(x, y, w, h); break;
+    case 'tree': sceneTree(x, y, w, h); break;
+    case 'planeCrash': scenePlane(x, y, w, h, true); break;
+    case 'plane': scenePlane(x, y, w, h, false); break;
+    case 'chip': sceneChip(x, y, w, h); break;
+    case 'hostage': sceneHostage(x, y, w, h); break;
+    case 'factory': sceneFactory(x, y, w, h); break;
+    case 'report': sceneReport(x, y, w, h); break;
+    case 'port': scenePort(x, y, w, h); break;
+    case 'drone': sceneDrone(x, y, w, h); break;
+    case 'fire': sceneFire(x, y, w, h); break;
+    case 'desert': sceneDesert(x, y, w, h); break;
+    case 'court': sceneCourt(x, y, w, h); break;
+    case 'treaty': sceneTreaty(x, y, w, h); break;
+    case 'personPlane': scenePersonPlane(x, y, w, h); break;
+  }
 }
 
-function drawRocket(x: number, y: number, w: number, h: number): void {
-  frameRect(x, y, w, h, 3, INK);
-  const ix = x + 3;
-  const iy = y + 3;
-  const iw = w - 6;
-  const ih = h - 6;
-  fillRect(ix, iy, iw, ih, [16, 24, 44]);
-  // Stars.
-  const stars: [number, number][] = [
-    [18, 12], [52, 26], [96, 10], [140, 30], [180, 14], [220, 26], [262, 12],
-    [30, 44], [80, 52], [200, 48], [240, 58], [120, 62], [280, 44],
+// ---------- story data ----------
+// All 30 stories verified first reported on Wed 25 Nov 2026 (or a genuine
+// 25 Nov development, labelled honestly). Claims are labelled CLAIM.
+type Region = keyof typeof RC;
+type Badge = 'REPORTED' | 'CLAIM' | 'ONGOING';
+type Story = {
+  n: number; region: Region; loc: string; kicker: string;
+  headline: string; deck: string; src: string; badge: Badge;
+  scene: SceneKey; lon: number; lat: number; cc: string; also: string;
+};
+const BADGE_C: Record<Badge, number[]> = {
+  REPORTED: [27, 122, 61],
+  CLAIM: [196, 127, 0],
+  ONGOING: [31, 95, 196],
+};
+const STORIES: Story[] = [
+  { n: 1, region: 'NAMER', loc: 'WASHINGTON, USA', kicker: 'TRADE • WASHINGTON',
+    headline: 'US HITS 14 PARTNERS WITH NEW TARIFFS',
+    deck: 'CHINA +20%, EU 15% — MARKETS FALL',
+    src: 'REUTERS, USTR', badge: 'REPORTED', scene: 'ship', lon: -77, lat: 39, cc: 'US', also: '' },
+  { n: 2, region: 'MIDEAST', loc: 'STRAIT OF HORMUZ', kicker: 'ENERGY • STRAIT OF HORMUZ',
+    headline: 'IRGC SAYS 2 TANKERS HIT MINES IN HORMUZ',
+    deck: 'BLASTS AND FIRE AT SEA — CLAIM UNVERIFIED',
+    src: 'IRGC, JUST SECURITY', badge: 'CLAIM', scene: 'tanker', lon: 56.5, lat: 26.5, cc: 'IR', also: '' },
+  { n: 3, region: 'MIDEAST', loc: 'RAS TANURA & HODEIDAH', kicker: 'WAR • RAS TANURA & HODEIDAH',
+    headline: 'HOUTHIS CLAIM RAS TANURA STRIKE',
+    deck: 'SAUDI COALITION HITS HODEIDAH IN REPLY',
+    src: 'JUST SECURITY, OILPRICE', badge: 'CLAIM', scene: 'refinery', lon: 50, lat: 26.6, cc: 'SA', also: '' },
+  { n: 4, region: 'ASIA', loc: 'JIUQUAN, CHINA', kicker: 'SPACE • JIUQUAN',
+    headline: 'SHENZHOU-24 DOCKS AT TIANGONG',
+    deck: 'FIRST PAKISTANI IN ORBIT',
+    src: 'XINHUA', badge: 'REPORTED', scene: 'rocket', lon: 100.3, lat: 39.8, cc: 'CN', also: '' },
+  { n: 5, region: 'ASIA', loc: 'BOGOR, INDONESIA', kicker: 'DISASTER • BOGOR',
+    headline: 'MINE FLOOD: 9 DEAD, 17 TRAPPED',
+    deck: 'FIRST REPORTED WEDNESDAY',
+    src: 'REUTERS', badge: 'REPORTED', scene: 'mine', lon: 106.8, lat: -6.6, cc: 'ID', also: '' },
+  { n: 6, region: 'EUROPE', loc: 'SAVASLEYKA, RUSSIA', kicker: 'WAR • SAVASLEYKA',
+    headline: 'UKRAINE SAYS 5 PLANES HIT AT AIR BASE',
+    deck: '3 MIG-31S, 2 SU-34S — CLAIM',
+    src: 'REUTERS', badge: 'CLAIM', scene: 'jets', lon: 43, lat: 55.6, cc: 'RU', also: '' },
+  { n: 7, region: 'EUROPE', loc: 'ODESA, UKRAINE', kicker: 'WAR • ODESA',
+    headline: 'RUSSIAN STRIKE KILLS 2 IN ODESA',
+    deck: '9,000 HOMES LOSE POWER',
+    src: 'REUTERS', badge: 'REPORTED', scene: 'city', lon: 30.7, lat: 46.5, cc: 'UA', also: '' },
+  { n: 8, region: 'NAMER', loc: 'WASHINGTON, USA', kicker: 'ECONOMY • WASHINGTON',
+    headline: 'INFLATION HOT: PCE 3.8%',
+    deck: 'S&P 500 CLOSES 7,182.78, -0.25%',
+    src: 'INVESTINGLIVE', badge: 'REPORTED', scene: 'chartDown', lon: -77, lat: 39, cc: 'US', also: '' },
+  { n: 9, region: 'NAMER', loc: 'GULF OF MEXICO', kicker: 'FOUND • GULF OF MEXICO',
+    headline: 'CESSNA WRECK FOUND: 6 DEAD',
+    deck: 'CRASH WAS TUESDAY; BODIES FOUND WED.',
+    src: 'USA TODAY', badge: 'REPORTED', scene: 'planeCrash', lon: -89, lat: 30.2, cc: 'US', also: '' },
+  { n: 10, region: 'LATAM', loc: 'CARTAGENA, COLOMBIA', kicker: 'FREED • CARTAGENA',
+    headline: 'ALL HOSTAGES FREED AFTER 17 HOURS',
+    deck: '1 GUNMAN KILLED, 4 HELD',
+    src: 'AP', badge: 'REPORTED', scene: 'hostage', lon: -75.5, lat: 10.4, cc: 'CO', also: '' },
+  { n: 11, region: 'MIDEAST', loc: 'GAZA', kicker: 'WAR • GAZA',
+    headline: 'ISRAELI STRIKE KILLS HAMAS COLONEL',
+    deck: 'WIFE AND 2 CHILDREN ALSO KILLED',
+    src: 'JUST SECURITY', badge: 'REPORTED', scene: 'city', lon: 34.5, lat: 31.5, cc: 'PS', also: '' },
+  { n: 12, region: 'AFRICA', loc: 'CAIRO, EGYPT', kicker: 'DISASTER • CAIRO',
+    headline: 'TANKER FIRE KILLS 31 IN CAIRO',
+    deck: '21 HURT; DOZENS OF CARS BURNED',
+    src: 'REUTERS, AP', badge: 'REPORTED', scene: 'fire', lon: 31.2, lat: 30, cc: 'EG', also: '' },
+  { n: 13, region: 'PACIFIC', loc: 'CANBERRA, AUSTRALIA', kicker: 'TREATY • CANBERRA',
+    headline: 'AUSTRALIA-SOLOMON SIGN SECURITY PACT',
+    deck: '$740M OVER A DECADE',
+    src: 'DFAT', badge: 'REPORTED', scene: 'treaty', lon: 149.1, lat: -35.3, cc: 'AU', also: '' },
+  { n: 14, region: 'ASIA', loc: 'SEOUL', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'chartDown', lon: 127, lat: 37.5, cc: 'KR',
+    also: 'KOSPI -6.2% AS AI DOUBTS HIT CHIP STOCKS' },
+  { n: 15, region: 'ASIA', loc: 'GAZIPUR', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'crowd', lon: 90.4, lat: 24, cc: 'BD',
+    also: 'WORKERS REJECT 36% PAY RISE IN GAZIPUR' },
+  { n: 16, region: 'ASIA', loc: 'PYONGYANG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: 125.8, lat: 39, cc: 'KP',
+    also: 'NORTH KOREA EXPELS SWISS DIPLOMAT' },
+  { n: 17, region: 'ASIA', loc: 'FUKUOKA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'city', lon: 130.4, lat: 33.6, cc: 'JP',
+    also: 'PARKING ATTENDANT STABBED DEAD IN FUKUOKA' },
+  { n: 18, region: 'EUROPE', loc: 'THE HAGUE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: 4.3, lat: 52.1, cc: 'NL',
+    also: '34 NATIONS: HALT TEAR GAS IN UKRAINE WAR' },
+  { n: 19, region: 'EUROPE', loc: 'BERLIN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'parliament', lon: 13.4, lat: 52.5, cc: 'DE',
+    also: 'MERZ DEFENDS UKRAINE AID IN BERLIN' },
+  { n: 20, region: 'EUROPE', loc: 'STRASBOURG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'tree', lon: 7.75, lat: 48.6, cc: 'EU',
+    also: 'EU VOTES 376-268 TO WEAKEN NATURE LAW' },
+  { n: 21, region: 'NAMER', loc: 'SANTA CLARA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'chip', lon: -122, lat: 37.4, cc: 'US',
+    also: 'NVIDIA BOSS APOLOGISES — REPORTED WED.' },
+  { n: 22, region: 'NAMER', loc: 'MADRID', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'personPlane', lon: -3.7, lat: 40.4, cc: 'ES',
+    also: 'ABREGO GARCIA LANDS IN MADRID, FREE' },
+  { n: 23, region: 'LATAM', loc: 'CORDOBA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'factory', lon: -64.2, lat: -31.4, cc: 'AR',
+    also: 'STELLANTIS OPENS FIRST ENGINE PLANT' },
+  { n: 24, region: 'LATAM', loc: 'SAO PAULO', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'plane', lon: -46.6, lat: -23.5, cc: 'BR',
+    also: 'US PROPOSES 10% DUTY ON EMBRAER JETS' },
+  { n: 25, region: 'MIDEAST', loc: 'GAZA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'report', lon: 35.6, lat: 32.2, cc: 'PS',
+    also: 'AMNESTY: WOMEN BEAR CRUSHING TOLL IN GAZA' },
+  { n: 26, region: 'MIDEAST', loc: 'HODEIDAH', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'port', lon: 42.8, lat: 14.8, cc: 'YE',
+    also: 'SAUDI COALITION STRIKES HODEIDAH PORT' },
+  { n: 27, region: 'MIDEAST', loc: 'HORMUZ', kicker: '', headline: '', deck: '', src: '', badge: 'CLAIM', scene: 'drone', lon: 57.5, lat: 28, cc: 'IR',
+    also: 'IRAN CLAIMS 2 US DRONES DOWNED' },
+  { n: 28, region: 'AFRICA', loc: 'BLUE NILE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'desert', lon: 34.4, lat: 11.2, cc: 'SD',
+    also: 'RSF DRONE STRIKE KILLS 19 IN SUDAN' },
+  { n: 29, region: 'AFRICA', loc: 'CAPE TOWN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'court', lon: 18.4, lat: -33.9, cc: 'ZA',
+    also: 'RAMAPHOSA WINS; IMPEACHMENT CASE DIES' },
+  { n: 30, region: 'AFRICA', loc: 'MOMBASA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'court', lon: 39.7, lat: -4.05, cc: 'KE',
+    also: 'CULT LEADER CONVICTED ON NEW CHARGES' },
+];
+
+// ---------- badges ----------
+function badge(b: Badge, x: number, y: number): number {
+  const w = textW(b, 1, true) + 8;
+  rect(x, y, w, 12, BADGE_C[b]);
+  drawText(b, x + 4, y + 3, 1, WHITE, { bold: true });
+  return w;
+}
+function numBadge(n: number, cx: number, cy: number, r = 8): void {
+  circle(cx, cy, r, RED);
+  ring(cx, cy, r, WHITE);
+  const s = String(n);
+  drawText(s, cx - Math.floor(textW(s, 1, true) / 2), cy - 3, 1, WHITE, { bold: true });
+}
+
+// ---------- masthead ----------
+function drawMasthead(): void {
+  rect(10, 8, 1004, 26, NAVY);
+  drawText('THE WORLD TODAY', 22, 15, 2, WHITE, { bold: true, serif: true });
+  drawText('30 STORIES • 7 REGIONS • ALL FROM THIS ONE DAY', 1002, 15, 1, GOLD, { bold: true, align: 'right' });
+  // giant serif date
+  drawText('Wednesday 25 November 2026', 512, 42, 5, INK, { bold: true, serif: true, align: 'center' });
+  line(10, 84, 1014, 84, INK);
+  drawText('TARIFFS HIT 14 PARTNERS • 2 TANKERS HIT • HOUTHIS CLAIM RAS TANURA', 512, 90, 2, RED, { bold: true, align: 'center' });
+  // region chips
+  const chips: [Region, string][] = [
+    ['ASIA', 'ASIA 6'], ['EUROPE', 'EUROPE 5'], ['NAMER', 'N. AMER 5'],
+    ['LATAM', 'LATAM 3'], ['MIDEAST', 'MIDEAST 6'], ['AFRICA', 'AFRICA 4'], ['PACIFIC', 'PACIFIC 1'],
   ];
-  for (const [sx, sy] of stars) fillRect(ix + sx, iy + sy, 3, 3, WHITE);
-  // Earth limb at the bottom: stepped bands, all inside the picture.
-  fillRect(ix + 90, iy + 60, iw - 180, 6, [43, 110, 180]);
-  fillRect(ix + 40, iy + 66, iw - 80, 6, [43, 110, 180]);
-  fillRect(ix, iy + 72, iw, 18, [43, 110, 180]);
-  fillRect(ix + 120, iy + 72, 60, 10, [46, 125, 87]);
-  fillRect(ix + 140, iy + 66, 40, 6, [46, 125, 87]);
-  // Space station: core + two solar panels (clear of the badge, top right).
-  fillRect(ix + 126, iy + 14, 52, 10, WHITE);
-  fillRect(ix + 118, iy + 10, 8, 18, [180, 190, 200]);
-  fillRect(ix + 178, iy + 10, 8, 18, [180, 190, 200]);
-  fillRect(ix + 126, iy + 6, 52, 5, [43, 110, 180]);
-  fillRect(ix + 126, iy + 24, 52, 5, [43, 110, 180]);
-  // Launch time under the station.
-  drawText('00:18 UTC', ix + 126, iy + 36, 2, WHITE);
-  // Rocket: body, nose, fins, flame — compressed to fit the 90px picture.
-  const rx = ix + 84;
-  const ry = iy + 14;
-  fillRect(rx, ry, 26, 36, WHITE);
-  fillTriangle(rx, ry, rx + 26, ry, rx + 13, ry - 12, RED);
-  fillRect(rx + 4, ry + 10, 18, 5, RED);
-  fillRect(rx + 4, ry + 22, 18, 5, [43, 110, 180]);
-  fillTriangle(rx - 7, ry + 52, rx, ry + 36, rx, ry + 52, RED);
-  fillTriangle(rx + 33, ry + 52, rx + 26, ry + 36, rx + 26, ry + 52, RED);
-  fillTriangle(rx + 13, ry + 52, rx + 6, ry + 66, rx + 20, ry + 66, ORANGE);
-  fillTriangle(rx + 13, ry + 52, rx + 9, ry + 62, rx + 17, ry + 62, YELLOW);
-}
-
-function drawRefinery(x: number, y: number, w: number, h: number): void {
-  frameRect(x, y, w, h, 3, INK);
-  const ix = x + 3;
-  const iy = y + 3;
-  const iw = w - 6;
-  const ih = h - 6;
-  const horizon = iy + Math.floor(ih * 0.68);
-  fillRect(ix, iy, iw, horizon - iy, [223, 213, 190]);
-  fillCircle(ix + iw - 36, iy + 20, 13, YELLOW);
-  fillRect(ix, horizon, iw, iy + ih - horizon, [58, 74, 90]);
-  // Refinery towers and tanks.
-  fillRect(ix + 30, horizon - 44, 18, 44, DARK);
-  fillRect(ix + 56, horizon - 30, 26, 30, [120, 130, 140]);
-  fillRect(ix + 90, horizon - 44, 14, 44, DARK);
-  fillRect(ix + 112, horizon - 22, 60, 22, [180, 190, 200]);
-  fillRect(ix + 180, horizon - 36, 40, 36, [150, 160, 170]);
-  fillRect(ix + 228, horizon - 26, 52, 26, [120, 130, 140]);
-  // Flame on the tall tower + smoke.
-  fillTriangle(ix + 97, horizon - 58, ix + 90, horizon - 42, ix + 104, horizon - 42, ORANGE);
-  fillTriangle(ix + 97, horizon - 52, ix + 93, horizon - 42, ix + 101, horizon - 42, YELLOW);
-  fillCircle(ix + 86, horizon - 54, 7, [140, 140, 138]);
-  fillCircle(ix + 74, horizon - 48, 8, [160, 160, 158]);
-  // Drone silhouette above.
-  fillRect(ix + 196, iy + 22, 22, 6, INK);
-  fillRect(ix + 190, iy + 20, 34, 2, INK);
-  fillRect(ix + 205, iy + 28, 4, 8, INK);
-}
-
-// --- Grid mini scenes (235 x 48) ---
-
-function drawMini(kind: string, x: number, y: number, w: number, h: number): void {
-  frameRect(x, y, w, h, 2, INK);
-  const ix = x + 2;
-  const iy = y + 2;
-  const iw = w - 4;
-  const ih = h - 4;
-  if (kind === 'drone') {
-    fillRect(ix, iy, iw, ih, SKY);
-    fillRect(ix, iy + 30, iw, ih - 30, [223, 213, 190]);
-    drawLine(ix + 60, iy + 10, ix + 170, iy + 38, 3, INK);
-    drawLine(ix + 170, iy + 10, ix + 60, iy + 38, 3, INK);
-    fillCircle(ix + 115, iy + 24, 7, INK);
-    fillCircle(ix + 60, iy + 10, 6, RED);
-    fillCircle(ix + 170, iy + 10, 6, RED);
-    fillCircle(ix + 60, iy + 38, 6, RED);
-    fillCircle(ix + 170, iy + 38, 6, RED);
-  } else if (kind === 'burst') {
-    fillRect(ix, iy, iw, ih, [232, 226, 208]);
-    fillRect(ix, iy + 32, iw, ih - 32, [120, 118, 110]);
-    fillCircle(ix + 115, iy + 22, 13, ORANGE);
-    fillCircle(ix + 115, iy + 22, 7, YELLOW);
-    fillTriangle(ix + 115, iy + 2, ix + 104, iy + 18, ix + 126, iy + 18, ORANGE);
-    fillTriangle(ix + 96, iy + 22, ix + 115, iy + 13, ix + 115, iy + 31, ORANGE);
-    fillTriangle(ix + 134, iy + 22, ix + 115, iy + 13, ix + 115, iy + 31, ORANGE);
-    fillCircle(ix + 100, iy + 8, 6, [140, 140, 138]);
-    fillCircle(ix + 132, iy + 6, 7, [160, 160, 158]);
-  } else if (kind === 'lock') {
-    fillRect(ix, iy, iw, ih, [34, 48, 63]);
-    fillRect(ix + 66, iy + 6, 98, 28, [223, 230, 238]);
-    fillRect(ix + 72, iy + 11, 86, 18, [159, 195, 224]);
-    fillTriangle(ix + 180, iy + 10, ix + 190, iy + 10, ix + 185, iy + 24, YELLOW);
-    fillRect(ix + 184, iy + 13, 2, 5, INK);
-    fillRect(ix + 184, iy + 20, 2, 2, INK);
-    fillRect(ix + 34, iy + 24, 22, 15, [240, 196, 64]);
-    fillRect(ix + 39, iy + 17, 12, 9, [240, 196, 64]);
-    fillRect(ix + 39, iy + 22, 12, 3, [34, 48, 63]);
-    fillRect(ix + 43, iy + 29, 4, 5, INK);
-  } else if (kind === 'flag') {
-    fillRect(ix, iy, iw, ih, SKY);
-    fillRect(ix, iy + 34, iw, ih - 34, [223, 213, 190]);
-    fillRect(ix + 40, iy + 6, 4, 34, INK);
-    fillRect(ix + 44, iy + 8, 46, 18, RED);
-    fillRect(ix + 44, iy + 8, 46, 6, WHITE);
-    fillRect(ix + 44, iy + 20, 46, 6, WHITE);
-    fillRect(ix + 130, iy + 14, 60, 26, [120, 130, 140]);
-    fillRect(ix + 140, iy + 20, 12, 8, YELLOW);
-    fillRect(ix + 160, iy + 20, 12, 8, YELLOW);
-    fillRect(ix + 196, iy + 26, 26, 14, DARK);
-  } else if (kind === 'podium') {
-    fillRect(ix, iy, iw, ih, [232, 226, 208]);
-    fillRect(ix + 96, iy + 10, 38, 24, [58, 74, 90]);
-    fillCircle(ix + 115, iy + 8, 7, [220, 180, 140]);
-    fillRect(ix + 60, iy + 34, 110, 10, DARK);
-    fillRect(ix + 44, iy + 6, 4, 30, INK);
-    fillRect(ix + 48, iy + 8, 22, 12, [43, 110, 180]);
-    fillRect(ix + 48, iy + 8, 22, 4, YELLOW);
-    fillRect(ix + 48, iy + 16, 22, 4, YELLOW);
-    fillRect(ix + 186, iy + 6, 4, 30, INK);
-    fillRect(ix + 190, iy + 8, 22, 12, RED);
-    fillRect(ix + 190, iy + 8, 22, 4, WHITE);
-    fillRect(ix + 190, iy + 16, 22, 4, WHITE);
-  } else if (kind === 'plane') {
-    fillRect(ix, iy, iw, ih, [188, 211, 230]);
-    fillCircle(ix + 30, iy + 10, 7, WHITE);
-    fillRect(ix + 24, iy + 8, 26, 6, WHITE);
-    fillRect(ix + 80, iy + 18, 74, 9, [51, 71, 94]);
-    fillTriangle(ix + 154, iy + 18, ix + 154, iy + 27, ix + 172, iy + 22, [51, 71, 94]);
-    fillTriangle(ix + 96, iy + 27, ix + 126, iy + 27, ix + 111, iy + 40, [51, 71, 94]);
-    fillTriangle(ix + 80, iy + 18, ix + 94, iy + 18, ix + 84, iy + 8, [51, 71, 94]);
-    fillCircle(ix + 196, iy + 24, 12, WHITE);
-    fillCircle(ix + 196, iy + 24, 9, RED);
-    drawLine(ix + 189, iy + 17, ix + 203, iy + 31, 3, RED);
-  } else if (kind === 'factory') {
-    fillRect(ix, iy, iw, ih, [223, 233, 242]);
-    fillRect(ix + 30, iy + 16, 70, 26, [110, 68, 140]);
-    fillTriangle(ix + 30, iy + 16, ix + 100, iy + 16, ix + 65, iy + 4, [110, 68, 140]);
-    fillRect(ix + 112, iy + 8, 12, 34, DARK);
-    fillCircle(ix + 118, iy + 4, 6, [160, 160, 158]);
-    fillRect(ix + 132, iy + 22, 60, 20, [150, 160, 170]);
-    fillRect(ix + 142, iy + 28, 10, 8, YELLOW);
-    fillRect(ix + 158, iy + 28, 10, 8, YELLOW);
-    fillRect(ix + 174, iy + 28, 10, 8, YELLOW);
-    fillRect(ix + 200, iy + 30, 22, 12, GREEN);
-    drawText('36%', ix + 202, iy + 34, 1, WHITE);
-  } else if (kind === 'cityfire') {
-    fillRect(ix, iy, iw, ih, [232, 226, 208]);
-    fillRect(ix + 24, iy + 16, 40, 26, [58, 74, 90]);
-    fillRect(ix + 72, iy + 8, 34, 34, [74, 90, 106]);
-    fillRect(ix + 114, iy + 20, 44, 22, [58, 74, 90]);
-    fillRect(ix + 166, iy + 12, 40, 30, [74, 90, 106]);
-    fillCircle(ix + 89, iy + 4, 9, ORANGE);
-    fillCircle(ix + 89, iy + 4, 5, YELLOW);
-    fillTriangle(ix + 89, iy - 6 < iy ? iy : iy, ix + 82, iy + 2, ix + 96, iy + 2, ORANGE);
-    fillCircle(ix + 120, iy + 30, 4, YELLOW);
-    fillCircle(ix + 140, iy + 30, 4, YELLOW);
-    fillCircle(ix + 160, iy + 30, 4, YELLOW);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stories — every one first reported on Wednesday 25 November 2026.
-// Dates re-checked against Reuters / AP / NYT / BBC / Just Security
-// Early Edition 25 Nov. Removed from the v1 page (wrong date):
-// Benghazi warship sinking (Sun 23 Nov), Huawei verdict (Tue 24 Nov),
-// Giuliani Medal of Freedom (Tue 24 Nov), Riyadh tower 11 hurt
-// (Tue 24 Nov), Hormuz count fixed to TWO tankers (IRGC statement).
-// ---------------------------------------------------------------------------
-
-interface Lead {
-  kicker: string;
-  badge: string;
-  badgeColor: RGB;
-  picture: 'hormuz' | 'rocket' | 'refinery';
-  headline: [string, string];
-  deck: [string, string, string];
-  source: string;
-}
-
-const LEADS: Lead[] = [
-  {
-    kicker: 'STRAIT OF HORMUZ',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    picture: 'hormuz',
-    headline: ['MINES HIT TWO', 'OIL TANKERS'],
-    deck: ['IRGC SAYS TWO TANKERS', 'STRUCK NAVAL MINES AND', 'CAUGHT FIRE AT SEA'],
-    source: 'REUTERS',
-  },
-  {
-    kicker: 'CHINA IN SPACE',
-    badge: 'CONFIRMED',
-    badgeColor: GREEN,
-    picture: 'rocket',
-    headline: ['FIRST PAKISTANI', 'IN SPACE'],
-    deck: ['PAKISTANI MUHAMMAD', 'ZEESHAN ALI ABOARD', 'TIANGONG 03:56 UTC'],
-    source: 'XINHUA - AP',
-  },
-  {
-    kicker: 'SAUDI ARABIA',
-    badge: 'CLAIM',
-    badgeColor: RED,
-    picture: 'refinery',
-    headline: ['HOUTHIS SAY THEY', 'HIT RAS TANURA'],
-    deck: ['REFINERY ATTACK CAUSED', 'FIRES, HOUTHIS SAY;', 'COALITION: 4 DRONES DOWN'],
-    source: 'REUTERS',
-  },
-];
-
-interface GridCard {
-  kicker: string;
-  badge: string;
-  badgeColor: RGB;
-  mini: string;
-  headline: [string, string];
-  deck: [string, string];
-}
-
-const GRID: GridCard[] = [
-  {
-    kicker: 'SUDAN',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'drone',
-    headline: ['RSF DRONES KILL 19', 'CIVILIANS'],
-    deck: ['6 WOMEN AMONG THE', 'DEAD, LAWYERS SAY'],
-  },
-  {
-    kicker: 'GAZA',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'burst',
-    headline: ['ISRAEL KILLS HAMAS', 'SECURITY CHIEF'],
-    deck: ['COL. ABUELOUF, WIFE', '+ 2 CHILDREN DEAD'],
-  },
-  {
-    kicker: 'WASHINGTON',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'lock',
-    headline: ['BREACH HITS CIA', 'AND INTEL CHIEF'],
-    deck: ['SOME UNCLASSIFIED', 'DATA TAKEN'],
-  },
-  {
-    kicker: 'LIBYA',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'flag',
-    headline: ['LIBYA VOWS REVENGE', 'FOR SHIP STRIKE'],
-    deck: ['2 OFFICERS DIED OF', 'WOUNDS; ITALY WARNS'],
-  },
-  {
-    kicker: 'UKRAINE',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'cityfire',
-    headline: ['ODESA STRIKE KILLS', '2, KYIV FLATS HIT'],
-    deck: ['RUSSIAN STRIKE HITS', 'ODESA AND KYIV'],
-  },
-  {
-    kicker: 'GERMANY',
-    badge: 'OFFICIAL',
-    badgeColor: TEAL,
-    mini: 'podium',
-    headline: ['MERZ: RUSSIA WANTS', 'MORE THAN UKRAINE'],
-    deck: ['DEFENDED IN THE', 'BUNDESTAG'],
-  },
-  {
-    kicker: 'POLAND',
-    badge: 'REPORTED',
-    badgeColor: ORANGE,
-    mini: 'plane',
-    headline: ['POLAND PLANS A', 'NO-FLY ZONE'],
-    deck: ['ON EASTERN BORDER', 'TO GUARD THE FLANK'],
-  },
-  {
-    kicker: 'BANGLADESH',
-    badge: 'OFFICIAL',
-    badgeColor: TEAL,
-    mini: 'factory',
-    headline: ['GARMENT PAY UP 36%', 'AFTER PROTESTS'],
-    deck: ['MINIMUM WAGE RISES', 'TO 139 DOLLARS'],
-  },
-];
-
-// Text-only list, items 12-24.
-const LIST: string[] = [
-  'SOLOMONS: NO-BASE PACT SIGNED',
-  'POPE LAMENTS COP31 FAILURE',
-  'EGYPT BUS CRASH KILLS 10',
-  '26 MINERS TRAPPED IN INDONESIA',
-  'CHINA: DEATH FOR LEAKING SECRETS',
-  'PUIGDEMONT TO RETURN DEC 12',
-  'JAPAN AIMS TO BE NO. 3 AI POWER',
-  'US STOCKS VARIED; NASDAQ DOWN',
-  'LAKERS BEAT JAZZ; DONCIC 28',
-  'DECATHLON HACK EXPOSES 130,000',
-  'EUROSTAR HIT BY UNION STRIKES',
-  'ABREGO GARCIA LEAVES FOR SPAIN',
-  'RUSSIAN WAR DEAD TALLY: 490,334',
-];
-
-const REGIONS: [string, number, RGB][] = [
-  ['EUROPE 7', 7, TEAL],
-  ['MIDDLE EAST 3', 3, RED],
-  ['AFRICA 3', 3, ORANGE],
-  ['ASIA 4', 4, GREEN],
-  ['N. AMERICA 4', 4, PURPLE],
-  ['OCEANIA 1', 1, GOLD],
-  ['SPACE 2', 2, INK],
-];
-
-// ---------------------------------------------------------------------------
-// Layout
-// ---------------------------------------------------------------------------
-
-const M = 24; // content margin
-const CW = 976; // content width, x = 24..1000
-
-function drawRegionBar(y: number): void {
+  let cx = 512 - 0;
   let total = 0;
-  for (const [label] of REGIONS) total += 10 + 4 + textWidth(label, 2);
-  total += (REGIONS.length - 1) * 16;
-  let x = Math.floor((W - total) / 2);
-  for (const [label, , color] of REGIONS) {
-    fillRect(x, y + 2, 10, 10, color);
-    drawText(label, x + 14, y, 2, INK);
-    x += 14 + textWidth(label, 2) + 16;
+  for (const [, label] of chips) total += textW(label, 1, true) + 16;
+  total += 6 * 8;
+  cx = 512 - Math.floor(total / 2);
+  for (const [reg, label] of chips) {
+    const w = textW(label, 1, true) + 16;
+    rect(cx, 108, w, 16, RC[reg]);
+    drawText(label, cx + 8, 112, 1, WHITE, { bold: true });
+    cx += w + 8;
   }
 }
 
-function drawLead(lead: Lead, x: number, y: number, w: number): void {
-  if (lead.picture === 'hormuz') drawHormuz(x, y, w, 96);
-  else if (lead.picture === 'rocket') drawRocket(x, y, w, 96);
-  else drawRefinery(x, y, w, 96);
-  drawBadge(lead.badge, x + w - 3, y + 6, lead.badgeColor);
-  drawText(lead.kicker, x, y + 106, 2, RED);
-  drawText(lead.headline[0], x, y + 126, 3, INK);
-  drawText(lead.headline[1], x, y + 149, 3, INK);
-  drawText(lead.deck[0], x, y + 178, 2, INK);
-  drawText(lead.deck[1], x, y + 195, 2, INK);
-  drawText(lead.deck[2], x, y + 212, 2, INK);
-  drawText(lead.source, x, y + 230, 2, MUTED);
+// ---------- lead card ----------
+function drawLead(s: Story, x: number, y: number, w: number, h: number): void {
+  outline(x, y, w, h, LINE, 1);
+  // location bar
+  rect(x, y, w, 18, NAVY);
+  numBadge(s.n, x + 11, y + 9, 7);
+  drawText(s.loc, x + 22, y + 6, 1, WHITE, { bold: true });
+  const bw = badge(s.badge, x + w - 8 - (textW(s.badge, 1, true) + 8), y + 3);
+  void bw;
+  // scene
+  paintScene(s.scene, x + 1, y + 19, w - 2, 76);
+  let ty = y + 19 + 76 + 6;
+  drawText(s.kicker, x + 6, ty, 1, RED, { bold: true });
+  ty += 10;
+  const hl = wrapText(s.headline, w - 12, 2, true);
+  for (const ln of hl.slice(0, 3)) {
+    drawText(ln, x + 6, ty, 2, INK, { bold: true, serif: true });
+    ty += 15;
+  }
+  const dk = wrapText(s.deck, w - 12, 1, false);
+  for (const ln of dk.slice(0, 2)) {
+    drawText(ln, x + 6, ty, 1, INK, {});
+    ty += 9;
+  }
+  drawText(s.src, x + 6, y + h - 10, 1, GRAY, {});
 }
 
-function drawGridCard(card: GridCard, x: number, y: number, w: number, h: number): void {
-  fillRect(x, y, w, h, CARD);
-  frameRect(x, y, w, h, 2, CARD_LINE);
-  drawMini(card.mini, x + 2, y + 2, w - 4, 48);
-  drawBadge(card.badge, x + w - 4, y + 5, card.badgeColor);
-  drawText(card.kicker, x + 8, y + 56, 2, RED);
-  drawText(card.headline[0], x + 8, y + 74, 2, INK);
-  drawText(card.headline[1], x + 8, y + 91, 2, INK);
-  drawText(card.deck[0], x + 8, y + 110, 2, MUTED);
-  drawText(card.deck[1], x + 8, y + 125, 2, MUTED);
+// ---------- numbers panel ----------
+function drawNumbers(x: number, y: number, w: number, h: number): void {
+  rect(x, y, w, h, NAVY);
+  drawText('THE DAY IN NUMBERS', x + w / 2, y + 8, 1, WHITE, { bold: true, align: 'center' });
+  line(x + 8, y + 22, x + w - 8, y + 22, NAVY2);
+  const rows: [string, string][] = [
+    ['14', 'TARIFFS'], ['2', 'TANKERS'], ['31', 'DEAD IN CAIRO'],
+    ['19', 'KILLED IN SUDAN'], ['9', 'MINERS IN BOGOR'], ['5', 'PLANES HIT'],
+    ['36%', 'PAY RISE, REJECTED'], ['-6.2%', 'KOSPI'],
+  ];
+  let ry = y + 28;
+  for (const [num, label] of rows) {
+    drawText(num, x + 10, ry, 3, GOLD, { bold: true });
+    drawText(label, x + 108, ry + 5, 1, WHITE, { bold: true });
+    ry += 19;
+  }
 }
-
-function drawPage(): void {
-  fillRect(0, 0, W, H, PAPER);
-  frameRect(10, 10, 1004, 1004, 6, INK);
-
-  // Kicker line.
-  drawText('THE WORLD TODAY', M, 22, 2, RED);
-  const right = '24 STORIES - 7 REGIONS - WED 25 NOV 2026';
-  drawText(right, M + CW - textWidth(right, 2), 22, 2, INK);
-
-  // Giant date headline (criterion 1: the day is the headline).
-  drawTextCentered('WEDNESDAY 25 NOVEMBER 2026', 512, 48, 6, INK);
-
-  // Red sub-headline: the three lead stories.
-  drawTextCentered(
-    'HORMUZ MINES HIT TANKERS - HOUTHIS HIT RAS TANURA - FIRST PAKISTANI IN SPACE',
-    512, 100, 2, RED,
-  );
-
-  // Region bar (criterion 2: breadth, at a glance).
-  drawRegionBar(126);
-
-  fillRect(M, 152, CW, 2, INK);
-
-  // Three illustrated leads (user direction: 3 big headlines with pictures).
-  const leadW = 312;
-  LEADS.forEach((lead, i) => {
-    drawLead(lead, M + i * (leadW + 20), 162, leadW);
-  });
-
-  fillRect(M, 414, CW, 2, INK);
-
-  // Eight illustrated grid stories (user direction: 8 with pictures).
-  const gridW = 235;
-  GRID.forEach((card, i) => {
-    const col = i % 4;
-    const row = Math.floor(i / 4);
-    drawGridCard(card, M + col * (gridW + 12), 424 + row * 164, gridW, 152);
-  });
-
-  // Text-only list (user direction: the rest as text is fine).
-  fillRect(M, 744, CW, 2, INK);
-  drawText('ALSO ON WEDNESDAY 25 NOVEMBER - 13 MORE STORIES', M, 754, 2, RED);
-  const src = 'SOURCES: REUTERS, AP, NYT, BBC';
-  drawText(src, M + CW - textWidth(src, 2), 754, 2, MUTED);
-  LIST.forEach((item, i) => {
-    const col = i < 7 ? 0 : 1;
-    const row = i < 7 ? i : i - 7;
-    const x = M + col * 498;
-    const y = 776 + row * 21;
-    const n = String(12 + i);
-    drawText(n, x, y, 2, RED);
-    drawText(item, x + 30, y, 2, INK);
-  });
-
-  // DATE CHECK footer (criterion 1 + 4: trust signal, names what was left out).
-  fillRect(M, 922, CW, 2, INK);
-  drawText(
-    'DATE CHECK: EVERY STORY HAPPENED OR WAS FIRST REPORTED WED 25 NOV 2026.',
-    M, 932, 2, INK,
-  );
-  drawText(
-    'LEFT OUT: BENGHAZI SINKING (23 NOV) - HUAWEI VERDICT (24 NOV)',
-    M, 949, 2, MUTED,
-  );
-  drawText(
-    'RIYADH TOWER 11 HURT (24 NOV) - COP31 NO DEAL (22 NOV) - EL CHAPO HELD (21 NOV)',
-    M, 966, 2, MUTED,
-  );
-}
-
-function main(): void {
-  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? 'out';
-  drawPage();
-  const png = encodePNG();
-  mkdirSync(outDir, { recursive: true });
-  const outPath = join(outDir, 'entry.png');
-  writeFileSync(outPath, png);
-  console.log(`wrote ${outPath} (${png.length} bytes, ${W}x${H})`);
-}
-
-main();
