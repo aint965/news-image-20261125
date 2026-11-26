@@ -418,14 +418,29 @@ function sceneShip(x: number, y: number, w: number, h: number, kind: 'cargo' | '
     rect(x + w * 0.86, hullY - h * 0.42, w * 0.08, h * 0.4, WHITE);
     windows(x + w * 0.86, hullY - h * 0.4, w * 0.08, h * 0.16, 2, 2, INK);
   } else {
-    // tanker tanks
+    // tanker: low flat-topped cylindrical tanks on a flat deck
+    const deckY = hullY - h * 0.02;
+    const TANK: number[] = [178, 178, 172];
     for (let i = 0; i < 3; i++) {
-      circle(x + w * (0.22 + i * 0.26), hullY - h * 0.1, h * 0.17, [200, 200, 196]);
-      rect(x + w * (0.22 + i * 0.26) - h * 0.17, hullY - h * 0.1, h * 0.34, h * 0.1, [200, 200, 196]);
+      const tcx = x + w * (0.22 + i * 0.26);
+      const tw = w * 0.17;
+      const th = h * 0.2;
+      rect(tcx - tw / 2, deckY - th, tw, th, TANK);
+      // top highlight + red band + ribs
+      rect(tcx - tw / 2, deckY - th, tw, 2, [215, 215, 208]);
+      rect(tcx - tw / 2, deckY - th * 0.5, tw, 2, [160, 40, 40]);
+      rect(tcx - tw * 0.28, deckY - th + 3, 2, th - 6, [150, 150, 144]);
+      rect(tcx + tw * 0.2, deckY - th + 3, 2, th - 6, [150, 150, 144]);
     }
+    // deck line
+    rect(x + w * 0.06, deckY, w * 0.8, h * 0.04, [60, 60, 58]);
+    // funnel + bridge at the stern
     rect(x + w * 0.86, hullY - h * 0.3, w * 0.06, h * 0.28, [160, 40, 40]);
-    flame(x + w * 0.55, hullY - h * 0.28, Math.max(4, h * 0.1));
-    smokePuff(x + w * 0.55, hullY - h * 0.48, Math.max(3, h * 0.07));
+    rect(x + w * 0.86, hullY - h * 0.3, w * 0.06, 3, [30, 30, 34]);
+    // hull waterline stripe
+    line(x + w * 0.07, hullY + h * 0.06, x + w * 0.9, hullY + h * 0.06, [200, 200, 196]);
+    flame(x + w * 0.62, hullY - h * 0.24, Math.max(4, h * 0.1));
+    smokePuff(x + w * 0.62, hullY - h * 0.34, Math.max(3, h * 0.07));
     flame(x + w * 0.3, hullY - h * 0.2, Math.max(3, h * 0.07));
   }
   // wake
@@ -838,11 +853,11 @@ const STORIES: Story[] = [
   { n: 2, region: 'MIDEAST', loc: 'STRAIT OF HORMUZ', kicker: 'ENERGY • STRAIT OF HORMUZ',
     headline: 'IRGC SAYS 2 TANKERS HIT MINES IN HORMUZ',
     deck: 'BLASTS AND FIRE AT SEA — CLAIM UNVERIFIED',
-    src: 'IRGC, JUST SECURITY', badge: 'CLAIM', scene: 'tanker', lon: 60, lat: 24, cc: 'IR', also: '' },
+    src: 'IRGC, JUST SECURITY', badge: 'CLAIM', scene: 'tanker', lon: 56.3, lat: 26.2, cc: 'IR', also: '' },
   { n: 3, region: 'MIDEAST', loc: 'RAS TANURA & HODEIDAH', kicker: 'WAR • RAS TANURA & HODEIDAH',
     headline: 'HOUTHIS CLAIM RAS TANURA STRIKE',
     deck: 'SAUDI COALITION HITS HODEIDAH IN REPLY',
-    src: 'JUST SECURITY, OILPRICE', badge: 'CLAIM', scene: 'refinery', lon: 48, lat: 17, cc: 'SA', also: '' },
+    src: 'JUST SECURITY, OILPRICE', badge: 'CLAIM', scene: 'refinery', lon: 50.1, lat: 26.6, cc: 'SA', also: '' },
   { n: 4, region: 'ASIA', loc: 'JIUQUAN, CHINA', kicker: 'SPACE • JIUQUAN',
     headline: 'SHENZHOU-24 DOCKS AT TIANGONG',
     deck: 'FIRST PAKISTANI IN ORBIT',
@@ -854,11 +869,11 @@ const STORIES: Story[] = [
   { n: 6, region: 'EUROPE', loc: 'SAVASLEYKA, RUSSIA', kicker: 'WAR • SAVASLEYKA',
     headline: 'UKRAINE SAYS 5 PLANES HIT AT AIR BASE',
     deck: '3 MIG-31S, 2 SU-34S — CLAIM',
-    src: 'REUTERS', badge: 'CLAIM', scene: 'jets', lon: 48, lat: 58, cc: 'RU', also: '' },
+    src: 'REUTERS', badge: 'CLAIM', scene: 'jets', lon: 42.5, lat: 55.5, cc: 'RU', also: '' },
   { n: 7, region: 'EUROPE', loc: 'ODESA, UKRAINE', kicker: 'WAR • ODESA',
     headline: 'RUSSIAN STRIKE KILLS 2 IN ODESA',
     deck: '9,000 HOMES LOSE POWER',
-    src: 'REUTERS', badge: 'REPORTED', scene: 'city', lon: 28, lat: 44, cc: 'UA', also: '' },
+    src: 'REUTERS', badge: 'REPORTED', scene: 'city', lon: 30.7, lat: 46.5, cc: 'UA', also: '' },
   { n: 8, region: 'NAMER', loc: 'WASHINGTON, USA', kicker: 'ECONOMY • WASHINGTON',
     headline: 'INFLATION HOT: PCE 3.8%',
     deck: 'S&P 500 CLOSES 7,182.78, -0.25%',
@@ -874,7 +889,7 @@ const STORIES: Story[] = [
   { n: 11, region: 'MIDEAST', loc: 'GAZA', kicker: 'WAR • GAZA',
     headline: 'ISRAELI STRIKE KILLS HAMAS COLONEL',
     deck: 'WIFE, 2 CHILDREN KILLED',
-    src: 'JUST SECURITY', badge: 'REPORTED', scene: 'city', lon: 30, lat: 32, cc: 'PS', also: '' },
+    src: 'JUST SECURITY', badge: 'REPORTED', scene: 'city', lon: 34.5, lat: 31.5, cc: 'PS', also: '' },
   { n: 12, region: 'AFRICA', loc: 'CAIRO, EGYPT', kicker: 'DISASTER • CAIRO',
     headline: 'TANKER FIRE KILLS 31 IN CAIRO',
     deck: '21 HURT; CARS BURNED',
@@ -891,23 +906,23 @@ const STORIES: Story[] = [
     also: 'NORTH KOREA EXPELS SWISS DIPLOMAT' },
   { n: 17, region: 'ASIA', loc: 'FUKUOKA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'city', lon: 130.4, lat: 33.6, cc: 'JP',
     also: 'PARKING ATTENDANT STABBED DEAD IN FUKUOKA' },
-  { n: 18, region: 'EUROPE', loc: 'THE HAGUE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: -2, lat: 56, cc: 'NL',
+  { n: 18, region: 'EUROPE', loc: 'THE HAGUE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: 4.3, lat: 52.1, cc: 'NL',
     also: '34 NATIONS: HALT TEAR GAS IN UKRAINE WAR' },
-  { n: 19, region: 'EUROPE', loc: 'BERLIN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'parliament', lon: 16, lat: 54, cc: 'DE',
+  { n: 19, region: 'EUROPE', loc: 'BERLIN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'parliament', lon: 13.4, lat: 52.5, cc: 'DE',
     also: 'MERZ DEFENDS UKRAINE AID IN BERLIN' },
-  { n: 20, region: 'EUROPE', loc: 'STRASBOURG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'tree', lon: 8, lat: 46, cc: 'EU',
+  { n: 20, region: 'EUROPE', loc: 'STRASBOURG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'tree', lon: 7.75, lat: 48.6, cc: 'EU',
     also: 'EU VOTES 376-268 TO WEAKEN NATURE LAW' },
   { n: 21, region: 'NAMER', loc: 'SANTA CLARA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'chip', lon: -122, lat: 37.4, cc: 'US',
     also: 'NVIDIA BOSS APOLOGISES — REPORTED WED.' },
-  { n: 22, region: 'NAMER', loc: 'MADRID', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'personPlane', lon: -8, lat: 39, cc: 'ES',
+  { n: 22, region: 'NAMER', loc: 'MADRID', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'personPlane', lon: -3.7, lat: 40.4, cc: 'ES',
     also: 'ABREGO GARCIA LANDS IN MADRID, FREE' },
   { n: 23, region: 'LATAM', loc: 'CORDOBA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'factory', lon: -64.2, lat: -31.4, cc: 'AR',
     also: 'STELLANTIS OPENS FIRST ENGINE PLANT' },
   { n: 24, region: 'LATAM', loc: 'SAO PAULO', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'plane', lon: -46.6, lat: -23.5, cc: 'BR',
     also: 'US PROPOSES 10% DUTY ON EMBRAER JETS' },
-  { n: 25, region: 'MIDEAST', loc: 'GAZA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'report', lon: 44, lat: 40, cc: 'PS',
+  { n: 25, region: 'MIDEAST', loc: 'GAZA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'report', lon: 34.5, lat: 31.5, cc: 'PS',
     also: 'AMNESTY: WOMEN BEAR CRUSHING TOLL IN GAZA' },
-  { n: 26, region: 'MIDEAST', loc: 'HODEIDAH', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'port', lon: 40, lat: 11, cc: 'YE',
+  { n: 26, region: 'MIDEAST', loc: 'HODEIDAH', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'port', lon: 42.8, lat: 14.8, cc: 'YE',
     also: 'SAUDI COALITION STRIKES HODEIDAH PORT' },
   { n: 27, region: 'MIDEAST', loc: 'HORMUZ', kicker: '', headline: '', deck: '', src: '', badge: 'CLAIM', scene: 'drone', lon: 63, lat: 32, cc: 'IR',
     also: 'IRAN CLAIMS 2 US DRONES DOWNED' },
@@ -1061,50 +1076,187 @@ function drawAlso(): void {
 }
 
 // ---------- world map ----------
-const LAND: [number, number, number, number][] = [
-  [98, 41, 90, 30], [152, 80, 25, 10], [142, 11, 23, 11], [222, 98, 44, 36],
-  [188, 30, 31, 17], [173, 20, 9, 9], [189, 86, 38, 39], [212, 123, 7, 11],
-  [276, 43, 76, 34], [245, 77, 16, 18], [265, 82, 21, 14], [296, 100, 46, 8],
-  [318, 55, 9, 16], [300, 116, 26, 12], [326, 134, 7, 11],
+// Vector coastline data: Natural Earth 110m land (public domain),
+// projected to the 350x150 map box, Douglas-Peucker simplified to ~1px.
+const COAST: number[][][] = [
+  [[279,8],[286,9],[281,11],[284,12],[300,12],[303,15],[311,14],[310,13],[320,13],[324,15],[328,14],[330,16],[349,16],[350,21],[347,21],[350,23],[341,26],[334,26],[334,30],[327,35],[327,28],[331,27],[335,23],[331,25],[327,24],[325,26],[326,27],[313,27],[306,31],[311,32],[312,36],[305,44],[304,43],[299,47],[301,49],[301,52],[298,52],[298,49],[296,49],[297,47],[290,47],[290,49],[294,49],[291,51],[294,55],[294,58],[290,63],[282,67],[281,65],[278,67],[279,71],[281,72],[280,77],[277,79],[275,75],[272,74],[271,78],[276,83],[276,87],[273,85],[273,82],[270,79],[270,71],[269,70],[267,72],[267,69],[264,64],[261,65],[255,71],[253,71],[253,77],[250,80],[248,73],[246,71],[246,66],[242,65],[240,62],[233,62],[230,60],[228,61],[224,57],[222,57],[225,63],[228,63],[230,61],[230,63],[232,63],[233,66],[226,72],[217,75],[217,71],[211,63],[209,57],[208,59],[206,57],[211,65],[211,69],[217,75],[217,77],[224,75],[225,77],[224,80],[213,93],[215,103],[209,108],[210,112],[207,114],[207,117],[201,123],[193,124],[189,111],[186,107],[188,96],[184,90],[184,83],[181,84],[179,81],[174,83],[166,83],[159,76],[158,65],[162,59],[166,57],[165,56],[169,51],[173,52],[175,50],[185,49],[186,54],[189,54],[194,57],[195,54],[208,56],[210,50],[204,51],[200,47],[208,44],[212,46],[216,45],[215,43],[211,42],[213,39],[209,40],[211,41],[208,42],[208,40],[205,40],[203,41],[202,46],[197,46],[198,50],[196,50],[194,45],[187,41],[190,45],[193,46],[191,46],[191,49],[190,46],[183,42],[178,43],[178,45],[175,46],[173,50],[166,50],[166,43],[173,43],[174,40],[171,38],[173,38],[173,36],[174,37],[179,35],[182,32],[183,33],[183,29],[185,28],[186,30],[184,31],[186,32],[194,32],[196,31],[195,30],[197,28],[199,28],[199,26],[203,26],[197,26],[195,23],[200,21],[197,20],[192,23],[193,26],[188,31],[185,26],[182,28],[180,24],[189,18],[199,14],[215,18],[212,20],[207,19],[211,22],[216,19],[218,20],[217,17],[221,18],[219,19],[234,17],[233,16],[242,17],[240,16],[240,14],[242,14],[243,12],[246,13],[245,14],[247,17],[244,19],[247,19],[248,17],[246,14],[248,13],[254,14],[253,12],[257,12],[260,10],[279,8]],
+  [[87,16],[89,18],[91,18],[92,16],[96,16],[96,19],[92,19],[84,24],[83,27],[85,29],[95,31],[95,33],[98,35],[99,34],[97,31],[101,29],[99,27],[99,23],[103,23],[107,25],[109,28],[113,26],[115,30],[119,31],[121,34],[117,36],[110,36],[106,39],[112,37],[112,40],[117,40],[111,43],[112,41],[110,41],[106,43],[107,45],[104,45],[103,46],[105,46],[103,46],[102,49],[101,47],[101,49],[100,48],[101,52],[96,55],[97,62],[94,59],[94,57],[83,57],[80,60],[81,68],[86,69],[87,66],[91,66],[89,72],[94,72],[93,76],[95,79],[100,79],[102,76],[105,75],[105,79],[107,75],[112,78],[115,77],[114,78],[116,78],[119,82],[124,82],[126,88],[141,94],[141,97],[137,101],[137,107],[135,111],[128,115],[123,124],[118,123],[120,126],[114,128],[115,130],[112,130],[113,132],[109,136],[111,138],[108,140],[109,142],[107,142],[106,144],[102,142],[101,138],[103,136],[101,136],[104,134],[103,126],[106,121],[105,118],[107,107],[101,103],[96,94],[96,89],[100,84],[99,79],[94,80],[90,74],[86,74],[84,71],[81,72],[74,69],[72,67],[72,64],[63,55],[67,63],[69,64],[66,63],[62,55],[55,49],[54,38],[56,39],[56,37],[51,35],[45,28],[33,25],[27,27],[29,25],[27,25],[25,28],[15,32],[21,29],[22,27],[15,26],[13,24],[19,21],[12,20],[18,20],[13,17],[23,14],[41,17],[54,15],[64,17],[63,18],[83,18],[81,14],[85,14],[85,16],[87,16]],
+  [[149,2],[155,2],[144,3],[163,4],[156,5],[158,5],[156,6],[157,8],[154,9],[156,9],[156,11],[151,13],[154,15],[150,14],[149,15],[153,15],[144,17],[140,20],[136,20],[133,23],[133,26],[128,25],[123,20],[123,17],[126,16],[122,16],[125,15],[121,14],[122,13],[118,10],[107,9],[106,8],[110,8],[104,7],[111,6],[109,5],[114,3],[132,3],[129,3],[141,1],[149,2]],
+  [[315,102],[317,108],[320,109],[324,114],[324,121],[322,122],[321,127],[313,128],[311,127],[311,125],[309,125],[310,124],[308,124],[309,122],[306,124],[306,122],[304,121],[298,121],[296,123],[287,124],[288,121],[285,115],[286,110],[293,108],[298,102],[301,103],[304,99],[307,101],[308,100],[307,103],[310,106],[312,106],[313,99],[315,102]],
+  [[91,12],[109,15],[110,16],[108,17],[115,19],[113,21],[109,19],[112,23],[108,22],[111,24],[99,21],[103,20],[104,18],[98,15],[88,15],[89,14],[87,13],[91,12]],
+  [[108,2],[115,3],[100,6],[102,7],[97,8],[99,9],[88,9],[90,8],[89,7],[92,8],[89,7],[92,6],[90,5],[95,5],[86,4],[92,2],[108,2]],
+  [[305,89],[306,91],[311,90],[316,92],[317,94],[319,94],[318,96],[322,99],[318,98],[317,96],[314,96],[314,98],[310,96],[309,97],[310,94],[304,92],[303,91],[305,90],[302,89],[305,89]],
+  [[312,50],[311,52],[302,53],[302,56],[301,54],[304,51],[307,51],[308,49],[309,50],[311,48],[311,45],[313,47],[312,50]],
+  [[278,94],[274,92],[268,82],[275,86],[276,89],[278,90],[278,94]],
+  [[231,15],[227,15],[225,13],[229,10],[239,8],[242,9],[230,12],[229,14],[231,15]],
+  [[290,86],[291,87],[288,89],[288,92],[282,91],[281,87],[285,85],[288,81],[291,82],[289,85],[290,86]],
+  [[64,12],[68,12],[70,14],[71,12],[77,16],[64,17],[61,16],[66,15],[59,14],[64,12]],
+  [[224,102],[221,114],[218,114],[218,105],[221,104],[223,100],[224,102]],
+  [[172,27],[172,30],[177,34],[169,36],[172,35],[170,35],[170,33],[172,32],[170,31],[169,28],[172,27]],
+  [[297,86],[295,88],[292,88],[295,89],[293,90],[295,93],[294,94],[292,91],[291,94],[291,88],[297,86]],
+  [[83,8],[97,11],[85,11],[85,9],[81,9],[83,8]],
+  [[193,5],[196,6],[190,9],[185,6],[193,5]],
+  [[343,130],[344,132],[340,136],[337,136],[343,130]],
+  [[345,125],[346,127],[349,127],[347,128],[346,131],[344,129],[345,127],[343,124],[345,125]],
+  [[5,19],[10,20],[0,21],[0,17],[5,19]],
+  [[58,14],[55,15],[53,13],[55,12],[54,11],[63,12],[58,14]],
+  [[120,35],[124,38],[123,40],[117,39],[120,35]],
+  [[98,64],[103,67],[99,67],[95,64],[92,65],[98,64]],
+  [[161,19],[162,21],[158,22],[153,22],[154,21],[151,20],[161,19]],
+  [[90,6],[92,6],[85,7],[81,5],[86,4],[90,6]],
+  [[109,144],[112,145],[106,145],[102,143],[106,144],[108,142],[109,144]],
+  [[293,69],[293,73],[296,75],[292,74],[293,69]],
+  [[315,42],[317,43],[311,45],[313,41],[315,42]],
+  [[70,9],[72,10],[61,10],[69,10],[68,8],[70,9]],
+  [[281,95],[287,97],[277,95],[281,95]],
+  [[104,67],[109,69],[105,70],[103,69],[105,69],[104,67]],
+  [[315,35],[315,40],[313,40],[313,32],[315,35]],
+  [[272,6],[264,5],[270,4],[272,6]],
+  [[92,20],[97,22],[90,22],[92,20]],
+  [[298,79],[297,82],[295,81],[296,80],[294,81],[295,79],[298,79]],
+  [[254,82],[252,79],[253,78],[255,80],[254,82]],
+  [[168,34],[165,34],[167,31],[169,31],[168,34]],
+  [[77,12],[81,12],[81,14],[75,13],[77,12]],
+  [[316,130],[319,130],[319,133],[317,133],[316,130]],
+  [[296,98],[295,99],[296,97],[299,97],[296,98]],
+  [[323,94],[319,94],[322,94],[322,92],[323,94]],
+  [[337,111],[334,109],[336,109],[337,111]],
+  [[324,93],[321,91],[323,91],[324,93]],
+  [[290,78],[289,79],[291,76],[290,78]],
+  [[293,64],[292,65],[292,63],[294,62],[293,64]],
+  [[190,48],[190,50],[187,49],[190,48]],
+  [[84,13],[82,12],[87,12],[84,13]],
+  [[79,9],[80,10],[75,10],[79,9]],
+  [[118,141],[119,142],[116,142],[118,141]],
+  [[290,96],[291,97],[288,97],[290,96]],
+  [[300,87],[300,89],[299,86],[300,87]],
+  [[200,5],[202,5],[192,5],[200,5]],
 ];
-function inLand(px: number, py: number): boolean {
-  for (const [cx, cy, rx, ry] of LAND) {
-    const dx = (px - cx) / rx;
-    const dy = (py - cy) / ry;
-    if (dx * dx + dy * dy <= 1) return true;
+// Scanline polygon fill (even-odd).
+function fillPoly(pts: number[][], ox: number, oy: number, c: number[]): void {
+  let minY = Infinity, maxY = -Infinity;
+  for (const [, y] of pts) { if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+    const xs: number[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = pts[i];
+      const [bx, by] = pts[(i + 1) % pts.length];
+      if ((ay <= y && by > y) || (by <= y && ay > y)) {
+        xs.push(ax + ((y - ay) * (bx - ax)) / (by - ay));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      for (let x = Math.ceil(xs[k]); x <= Math.floor(xs[k + 1]); x++) px(ox + x, oy + y, c);
+    }
   }
+}
+function strokePoly(pts: number[][], ox: number, oy: number, c: number[]): void {
+  for (let i = 0; i < pts.length; i++) {
+    const [ax, ay] = pts[i];
+    const [bx, by] = pts[(i + 1) % pts.length];
+    line(ox + ax, oy + ay, ox + bx, oy + by, c);
+  }
+}
+function inPoly(px: number, py: number, pts: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function onLand(px: number, py: number): boolean {
+  for (const p of COAST) if (inPoly(px, py, p)) return true;
   return false;
 }
 function drawMap(x: number, y: number, w: number, h: number): void {
   outline(x, y, w, h, LINE, 1);
   drawText('WHERE IT HAPPENED', x + 8, y + 6, 1, INK, { bold: true });
-  drawText('pins = story numbers', x + w - 8, y + 6, 1, GRAY, { align: 'right' });
+  drawText('PINS = STORY NUMBERS', x + w - 8, y + 6, 1, GRAY, { align: 'right' });
   const mx = x + 2;
   const my = y + 22;
   const mw = w - 4;
   const mh = 150;
-  // dotted land
-  for (let gy = 0; gy < mh; gy += 5) {
-    for (let gx = 0; gx < mw; gx += 5) {
-      if (inLand(gx, gy)) rect(mx + gx, my + gy, 2, 2, [120, 130, 140]);
-    }
+  // faint graticule
+  for (const lon of [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150]) {
+    const gx = ((lon + 180) / 360) * mw;
+    line(mx + gx, my, mx + gx, my + mh, [216, 213, 200]);
   }
-  // region labels
-  drawText('N. AMERICA', mx + 30, my + 8, 1, INK, {});
-  drawText('S. AMERICA', mx + 150, my + 92, 1, INK, {});
-  drawText('EUROPE', mx + 165, my + 8, 1, INK, {});
-  drawText('AFRICA', mx + 165, my + 76, 1, INK, {});
-  drawText('ASIA', mx + 255, my + 14, 1, INK, {});
-  drawText('PACIFIC', mx + 240, my + 132, 1, INK, {});
-  // pins
+  for (const lat of [60, 30, 0, -30]) {
+    const gy = ((85 - lat) / 145) * mh;
+    line(mx, my + gy, mx + mw, my + gy, [216, 213, 200]);
+  }
+  // vector land: tint fill + coastline stroke
+  for (const poly of COAST) fillPoly(poly, mx, my, [228, 222, 200]);
+  for (const poly of COAST) strokePoly(poly, mx, my, [90, 88, 82]);
+  // region labels (placed clear of the pin clusters; pins may not land on them)
+  const LABELS: [string, number, number][] = [
+    ['N. AMERICA', 28, 20],
+    ['S. AMERICA', 108, 92],
+    ['EUROPE', 165, 4],
+    ['AFRICA', 155, 100],
+    ['ASIA', 244, 22],
+    ['PACIFIC', 296, 132],
+  ];
+  const LABEL_RECTS: [number, number, number, number][] = LABELS.map(([t, lx, ly]) => [lx, ly, textW(t, 1, false), 7]);
+  // pins: overlapping pins shift with a leader line back to the true point
+  // TRUE_PTS reserves every story's true point, so a moved pin can never
+  // land on top of a pin that is placed later.
+  const TRUE_PTS: [number, number][] = STORIES.map((s) => [
+    ((s.lon + 180) / 360) * mw,
+    ((85 - s.lat) / 145) * mh,
+  ]);
+  const placed: [number, number][] = [];
+  const OFFS: [number, number][] = [[0, 0], [0, -15], [0, 15], [-15, 0], [15, 0], [-11, -11], [11, -11], [-11, 11], [11, 11], [0, -24], [0, 24], [-24, 0], [24, 0], [-15, -24], [15, -24], [-15, 24], [15, 24], [0, -36], [0, 36], [-36, 0], [36, 0], [-24, -24], [24, -24], [-24, 24], [24, 24], [0, -48], [0, 48], [-48, 0], [48, 0], [-36, -36], [36, -36], [-36, 36], [36, 36]];
   for (const s of STORIES) {
-    const px = mx + ((s.lon + 180) / 360) * mw;
-    const py = my + ((85 - s.lat) / 145) * mh;
-    circle(px, py, 6, RED);
-    ring(px, py, 6, WHITE);
+    const tx = ((s.lon + 180) / 360) * mw;
+    const ty = ((85 - s.lat) / 145) * mh;
+    let bx = tx, by = ty, moved = false, found = false;
+    let fallback: [number, number] | null = null;
+    for (const [dx, dy] of OFFS) {
+      const cx = tx + dx, cy = ty + dy;
+      if (cx < 8 || cx > mw - 8 || cy < 8 || cy > mh - 8) continue;
+      let ok = true;
+      for (const [px2, py2] of placed) {
+        const ddx = cx - px2, ddy = cy - py2;
+        if (ddx * ddx + ddy * ddy < 225) { ok = false; break; }
+      }
+      if (!ok) continue;
+      // Reserve later pins' true points, but only for MOVED candidates:
+      // a pin's own true point ([0,0]) is first-come-first-served, and a
+      // later pin sharing a nearby true point moves via the placed check.
+      if (dx !== 0 || dy !== 0) {
+        for (const [tx2, ty2] of TRUE_PTS) {
+          if (Math.abs(tx2 - tx) < 1 && Math.abs(ty2 - ty) < 1) continue; // own true point
+          const ddx = cx - tx2, ddy = cy - ty2;
+          if (ddx * ddx + ddy * ddy < 225) { ok = false; break; }
+        }
+      }
+      if (!ok) continue;
+      for (const [lx, ly, lw, lh] of LABEL_RECTS) {
+        if (cx + 8 > lx - 2 && cx - 8 < lx + lw + 2 && cy + 8 > ly - 2 && cy - 8 < ly + lh + 2) { ok = false; break; }
+      }
+      if (!ok) continue;
+      if (dx === 0 && dy === 0) { bx = cx; by = cy; found = true; break; }
+      if (onLand(cx, cy)) { bx = cx; by = cy; moved = true; found = true; break; }
+      if (!fallback) fallback = [cx, cy];
+    }
+    if (!found && fallback) { bx = fallback[0]; by = fallback[1]; moved = true; found = true; }
+    if (!found) { bx = tx; by = ty; }
+    placed.push([bx, by]);
+    if (moved) {
+      line(mx + tx, my + ty, mx + bx, my + by, RED);
+      circle(mx + tx, my + ty, 2, RED);
+    }
+    circle(mx + bx, my + by, 7, RED);
+    ring(mx + bx, my + by, 7, WHITE);
     const t = String(s.n);
-    drawText(t, px - Math.floor(textW(t, 1, true) / 2), py - 3, 1, WHITE, { bold: true });
+    drawText(t, mx + bx - Math.floor(textW(t, 1, true) / 2), my + by - 3, 1, WHITE, { bold: true });
   }
+  // region labels on top (pins were kept clear of them)
+  for (const [t, lx, ly] of LABELS) drawText(t, mx + lx, my + ly, 1, INK, {});
   // region tally
   let ty = y + 180;
   drawText('BY REGION', x + 8, ty, 1, RED, { bold: true });
