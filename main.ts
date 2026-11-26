@@ -140,6 +140,121 @@ function encodePNG(): Buffer {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
+// ---------- real serif glyphs (Liberation Serif, embedded bitmaps) ----------
+// Glyph bitmaps rendered from Liberation Serif (Times-metric, public
+// domain-style free font) with PIL at exact cap heights, thresholded and
+// hex-packed. Tuple: [advance, leftBearing, topOffset, inkW, inkH, hex]
+// topOffset is relative to the cap-height top (negative = overshoot).
+// SERIF35B: Bold, cap height 35px — the giant date only.
+const SERIF35B: Record<string, [number, number, number, number, number, string]> = {
+  'A': [38,0,-1,38,36,'0001fe00000001ff00000001ff00000003ff00000003ff80000007ff800000077f800000077fc000000e3fc000000e3fc000000e3fe000001c1fe000001c1ff000003c0ff00000380ff00000380ff800007807f800007007f800007007fc0000e003fc0000e003fc0000fffffe0001fffffe0001ffffff0003c001ff00038000ff00038000ff80078000ff800700007f800700007fc00f00007fc00e00003fe01e00003fe01e00003ff07fe003fffc7fe003fffc'],
+  'B': [35,0,0,34,36,'7fffff0007fffffe0007fffff8007fc0ffc007fc03fc007fc03fe007fc03fe007fc01fe007fc01fe007fc01fe007fc01fe007fc03fc007fc03fc007fc07f8007fc0ff0007ffffc0007ffffc0007fffff8007fc03fe007fc01ff007fc00ff807fc007f807fc007fc07fc007fc07fc007fc07fc007fc07fc007fc07fc007fc07fc007f807fc00ff807fc00ff007fc01fe007fffffc07ffffff007fffffc00000000000'],
+  'D': [38,0,0,36,36,'7ffffe0007fffffe0007fffff8007fc0ffc007fc03fe007fc01ff007fc00ff807fc007fc07fc003fc07fc003fc07fc003fe07fc003fe07fc001fe07fc001fe07fc001ff07fc001ff07fc001ff07fc001ff07fc001ff07fc001ff07fc001ff07fc001fe07fc001fe07fc001fe07fc001fe07fc003fc07fc003fc07fc003fc07fc007f807fc007f007fc00ff007fc03fe007fffff807fffffe007fffff000000000000'],
+  'E': [35,0,0,33,35,'7ffffffc07ffffffc007fffffc007fc001c007fc001c007fc000c007fc000c007fc000c007fc000c007fc0000007fc0000007fc0000007fc01c0007fc01c0007fc01c0007fc01c0007ffffc0007ffffc0007ffffc0007fc01c0007fc01c0007fc01c0007fc01c0007fc0000007fc0000007fc0003007fc0003807fc0003807fc0003007fc0007007fc0007007fc0007007ffffff07fffffff07fffffff0'],
+  'M': [50,0,0,49,35,'7ffe00003fff87ffe00003fff007ff00007ff8007ff00007ff0007ff00007ff0007ff8000fff0007ff8000fff0007bfc001eff0007bfc001eff0007bfe003cff00079fe003cff00079fe0038ff00078ff0078ff00078ff0070ff000787f80f0ff000787f80e0ff000787fc1e0ff000783fc1e0ff000783fe3c0ff000781fe3c0ff000781fe380ff000780ff780ff000780fff00ff000780fff00ff0007807fe00ff0007807fe00ff0007803fe00ff0007803fc00ff0007801fc00ff0007801f800ff0007801f800ff0007800f000ff0007800f001ff807ff80601ffff07ff80601ffff8'],
+  'N': [38,1,0,37,35,'fff000fff8fff800fff80ffc000f800ffe0007000ffe0007000fff0007000fff8007000fffc007000f7fc007000f3fe007000f3ff007000f1ff807000f0ff807000f07fc07000f03fe07000f03ff07000f01ff07000f00ff87000f007fc7000f007fe7000f003fe7000f001ff7000f000fff000f000fff000f0007ff000f0003ff000f0001ff000f0001ff000f0000ff000f00007f000f00003f000f00003f000f00001f00fff0000f00fff0000700'],
+  'O': [41,2,-1,37,37,'0007ff0000003fffe00000fffff80003fc01fe0007f800ff000ff0007f800fe0003fc01fe0003fc03fc0001fe03fc0001fe03fc0001ff07fc0000ff07fc0000ff07f80000ff07f80000ff07f80000ff07f80000ff87f80000ff87f80000ff87f80000ff87f80000ff87f80000ff07f80000ff07f80000ff07fc0000ff07fc0000ff03fc0001fe03fc0001fe01fc0001fe01fe0003fc00fe0003f8007f0007f8007f800ff0001fc01fe0000fffff800003fffe0000007ff0000'],
+  'R': [38,0,0,39,35,'7fffff00007fffffe00007fffff80007fc03fc0007fc01fe0007fc00ff0007fc00ff0007fc00ff0007fc007f8007fc007f8007fc007f8007fc007f8007fc00ff0007fc00ff0007fc00ff0007fc01fe0007fc07fc0007fffff80007ffffe00007ffffc00007fc3fe00007fc1fe00007fc0ff00007fc0ff80007fc07f80007fc07fc0007fc03fe0007fc01ff0007fc01ff0007fc00ff8007fc007fc007fc007fc007fc003fe07fffc01ffe7fffc01ffe'],
+  'S': [29,2,-1,26,37,'007fe0003fffe00ffffe01f807e03f001e03e000e03e000e07e000e07e000e07e000007f000007f800007fe00003ffc0003fff0001fffe001ffff000ffffc007fffe001ffff0007fff0000fff80001ff800007f800003f800001f860001f860001f870001f870001f870001f070001f07c003e07e007e07ffff803ffff0003ff800'],
+  'V': [38,0,0,38,36,'7fff001ffc7fff001ffc1ff80003e00ff00001c00ff80003c007f800038007fc00078003fc00070003fe00070003fe000f0001fe000e0001ff001e0000ff001c0000ff801c0000ff803c00007fc03800007fc07800003fc07000003fe07000001fe0f000001ff0e000001ff0e000000ff1c000000ff9c0000007fbc0000007ff80000003ff80000003ff00000003ff00000001ff00000001fe00000000fe00000000fc00000000fc000000007c00000000780000'],
+  'W': [53,0,0,53,36,'7fff0000007ff07fff0000007ff01ff800000007c00ff8000e0007800ff8001f00078007f8001f000f0007fc003f000f0007fc003f800f0003fc003f800e0003fe007fc01e0001fe007fc01e0001fe00ffc01c0001ff00ffe03c0000ff00ffe03c0000ff01fff0380000ff81cff03800007f81cff07800007f83cff87800007fc387f87000003fc787fcf000003fe783fcf000003fe703fce000001fef03fee000001ffe01ffe000001ffe01ffc000000ffe00ffc000000ffc00ffc000000ffc00ff80000007f8007f80000007f8007f80000007f8007f80000003f0003f00000003f0003f00000003e0001f00000001e0001e00000001e0001e0000'],
+  'Y': [38,0,0,38,35,'7fffe07ff87fffe03ff80ffe0007c007fe00078003fe00078003ff000f0001ff000e0000ff801e0000ff801c00007fc03c00007fc03800003fe07800003fe07000001ff0f000000ff9e000000ff9e0000007ffc0000007ffc0000003ff80000003ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff00000001ff0000003ffff800003ffff800'],
+  '2': [26,2,-1,23,36,'07fc007fff807fffe0780ff07807f07007f87003f87003f87003f80003fc0003f80003f80003f80003f80007f80007f00007f0000fe0000fc0001f80003f00007e0000fc0001f80003f00003c0000780000f00001e00003c00007ffffcfffffcfffffcfffffcfffffcfffffc'],
+  '5': [26,2,0,23,36,'3ffff03ffff03ffff03ffff03ffff03ffff03800003800003800003800003800003800003800003800003bfe003fffc03fffe0380ff00007f80003fc0003fc0001fc0001fc0001fc0001fe0001fc0001fce001fce001fce003fce003f8f007f8f80ff0ffffe0ffff801ffc00'],
+  '6': [26,1,-1,24,37,'001fe000fffc01fffc03f03c07e01c0fe01c0fc01c1fc01c1fc01c3f80003f80003f80007f80007f80007f80007f9fc07ffff07ffff87fc3fc7f01fe7f01fe7f00fe7f00ff7f80ff7f80ff7f80ff3f80ff3f80ff3f80ff1f80fe1fc0fe0fc0fe0fc0fc07e1fc03fff801ffe0003f80'],
+  '0': [26,2,-1,23,37,'00fe0003ff8007ffc00fc7e01f87f03f83f03f03f83f03f87f03f87f01fc7f01fc7f01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fcff01fc7f01fc7f01fc7f01fc7f03f83f03f83f03f83f83f01f87f00fc7e007ffc003ff8000fc00'],
+  ' ': [13,0,0,0,0,''],
+};
+// SERIF14B: Liberation Serif Bold, cap height 14px (font size 21) — masthead,
+// sub-headline, numbers panel, ALSO heading.
+const SERIF14B: Record<string, [number, number, number, number, number, string]> = {
+  'A': [15,0,0,16,14,'038003c007c005c00de008e008f018701ff0107820382038603cf07e'],
+  'B': [14,0,0,14,15,'ffc038f038703870387038e03fc0387038383838383838383870ffe00000'],
+  'C': [15,1,0,13,14,'0fe03c3078107010f000f000e000e000f000f000700878183c380fe0'],
+  'D': [15,0,0,15,15,'7fc038f03838383c383c381c381c381c381c381c383c383838707fe00000'],
+  'E': [14,0,0,13,14,'fff0381038103800380038403fc0384038403800380838083818fff8'],
+  'F': [13,0,0,12,14,'fff3833813813803843843fc3843843803803807f0'],
+  'G': [16,1,0,15,14,'0ff03c3878087008f000f000e000e000f07ef038703878383c380ff0'],
+  'H': [16,0,0,16,14,'fe7f381c381c381c381c381c3ffc381c381c381c381c381c381cfe7f'],
+  'I': [8,0,0,8,14,'7e3c3c3c3c3c3c3c3c3c3c3c3c7e'],
+  'J': [10,0,0,10,14,'0fc0700700700700700700700700700704704e07c0'],
+  'K': [16,0,0,17,14,'fe3e038180383003860038c00398003fc003fe0039e0038f0038780383c0381e0fe1f0'],
+  'L': [14,0,0,14,14,'7e00380038003800380038003800380038003800380838083818fff8'],
+  'M': [20,0,0,20,14,'fc07e3c0783e0782e0f82f0b8271b82793823b3823a3821e3821e3821c3820c38f887e'],
+  'N': [15,0,0,15,14,'783e3c083e083f082708238823c821e820f820782078203820187808'],
+  'O': [16,1,0,15,14,'0fc038707038703cf01ce01ce01ce01cf01cf01c703c703838700fc0'],
+  'P': [13,0,0,13,14,'ffc038e03870387038703870387038e03fc038003800380038007f00'],
+  'Q': [16,1,0,15,17,'0fc038707038703cf01ce01ce01ce01cf01cf01c703c703838700fe001e000f8003c'],
+  'R': [15,0,0,16,14,'ffc03870383838383838383838703fe039e038e038703878383c7e1e'],
+  'S': [12,1,0,10,14,'3f8618e08e08f007c07f01f803c01c81c818e387e0'],
+  'T': [14,0,0,14,14,'fffcc78c878487840780078007800780078007800780078007801fe0'],
+  'U': [15,0,0,15,14,'7e3e3808380838083808380838083808380838083c081c181f7007c0'],
+  'V': [15,0,0,15,14,'fc1e380838083c181c101e300e200f20076007c007c0038003800180'],
+  'W': [21,0,0,21,14,'fc00f83810203838203c38601c3c401c7c401e5cc00ece800f8f800f8f80078700070700030300030300'],
+  'X': [15,0,0,15,14,'7e3c1c101e200e6007c00780038003c007e004e008f01870303878fe'],
+  'Y': [15,0,0,15,14,'fe3e3c081c181e300e200f6007c003c0038003800380038003800fe0'],
+  'Z': [14,1,0,12,14,'7fe41e41c03c0780700f01e01c03c0381781f03fff'],
+  '0': [10,0,0,10,14,'1e03b033871871c71c71c71c71c7187183383b01e0'],
+  '1': [10,1,0,9,14,'0c03c05c01c01c01c01c01c01c01c01c01c01c07f0'],
+  '2': [10,0,0,10,14,'3e06784380380380380300700e01803006007fc7fc'],
+  '3': [10,0,0,10,14,'3e06784380380380701e007803801c41c43c6387e0'],
+  '4': [10,0,0,11,14,'0380780780f81b8138338638438ffcffc038038038'],
+  '5': [10,0,0,10,14,'3f83f82002002002003f003803c01c41c4386387e0'],
+  '6': [10,0,0,10,14,'0f81983087087007f073871c71c71c71c31c3b81f0'],
+  '7': [10,1,0,9,14,'ff8ff8c108300200600600c00c0180180380300700'],
+  '8': [10,0,0,10,14,'1f03387387187383381f033871871c71c71c7381f0'],
+  '9': [10,0,0,10,14,'1e073073871871c71c73c3fc01c0184384386707e0'],
+  ' ': [5,0,0,0,0,''],
+  '•': [7,0,4,7,6,'387c7c7c7c38'],
+  '-': [7,0,8,7,2,'7c7c'],
+  '.': [5,0,11,5,3,'707070'],
+  '%': [21,2,0,18,14,'380c06c080c6180c6300c6200ce4006cce0389b0011980339806398041980c1b0180e0'],
+};
+// SERIF14R: Liberation Serif Regular, cap height 14px (font size 21) — lead headlines.
+const SERIF14R: Record<string, [number, number, number, number, number, string]> = {
+  'A': [15,0,0,16,14,'03800380038004c004c008c0086008601ff01030103020182018703e'],
+  'B': [14,0,0,13,14,'7fc0306030303030303030603fc03030301830183018303830307fe0'],
+  'C': [14,0,0,13,14,'07f018183008300860006000600060006000600030083008181807f0'],
+  'D': [15,0,0,15,14,'7fc030703018301c300c300c300c300c300c300c300c301830307fc0'],
+  'E': [13,0,0,12,14,'7fe3023023003003083f83083003003003013017ff'],
+  'F': [12,0,0,11,14,'7fe3023023003003003083f83003003003003007c0'],
+  'G': [15,0,0,15,14,'07f01818300830006000600060006000603c601830183018181807f0'],
+  'H': [15,0,0,15,14,'7c7c301830183018301830183ff83018301830183018301830187c7c'],
+  'I': [7,0,0,7,14,'7c1010101010101010101010107c'],
+  'J': [8,0,0,8,14,'1e0c0c0c0c0c0c0c0c0c0c8cc870'],
+  'K': [15,0,0,15,14,'7c3c3030306030c0318033003700398031c030e03060303030387c1e'],
+  'L': [13,0,0,12,14,'7c03003003003003003003003003003013003027fe'],
+  'M': [19,0,0,19,14,'7803c380703c0702c070260b0260b026130231302323021a3021c3021c3020c307887c'],
+  'N': [15,0,0,15,14,'783c3c082c08260823082308218820c820e820682038203820187808'],
+  'O': [15,0,0,15,14,'07e018303018600c600c600c600c600c600c600c700c3018183007e0'],
+  'P': [12,0,0,11,14,'7f830c30e30630630630c30c3f03003003003007c0'],
+  'Q': [15,0,0,15,17,'07e018303018600c600c600c600c600c600c600c600c3018183007e000700038001e'],
+  'R': [14,0,0,14,14,'7fc03060306030703060306030e03f80318030c030e0306030307c3c'],
+  'S': [12,1,0,10,14,'1f0618408c006007803e00f8018018808818c187e0'],
+  'T': [13,0,0,13,14,'fff08600860006000600060006000600060006000600060006000f80'],
+  'U': [15,0,0,15,14,'7c3c300830083008300830083008300830083008300818101c3007c0'],
+  'V': [15,0,0,15,14,'781e30083808181018100c200c200660064007400380038001800100'],
+  'W': [20,0,0,20,14,'f800e6020430204307043070818f08189880c9900d1d00d0d0070e0060600606002040'],
+  'X': [15,0,0,15,14,'7c3c18100c200e4006c003800380038006c004e0086010303038787c'],
+  'Y': [15,0,0,15,14,'7c3c380818101c300c200640074003800180018001800180018007c0'],
+  'Z': [13,1,0,11,14,'7fc41c0180300700600c00c0180380302602e04ffc'],
+  '0': [10,0,0,10,14,'1e031021860860c60c60c60c60c6086082183101e0'],
+  '1': [10,1,0,9,14,'0803804800800800800800800800800800800807f0'],
+  '2': [10,0,0,10,14,'3e06304180180180180100300600c01002007f87f8'],
+  '3': [10,1,0,9,14,'7c0c708300300300601c0030010018018830830fc0'],
+  '4': [10,0,0,11,14,'010030070050090110110210410438ffc010010010'],
+  '5': [10,1,0,9,14,'7f07e04004004004007e00300100180188108307c0'],
+  '6': [10,0,0,10,14,'0f81083086006006006f061860c60c60c20c3180f0'],
+  '7': [10,1,0,9,14,'ff8ff8810010020020040040080080100100200200'],
+  '8': [10,0,0,10,14,'1e03186186186183181f021860860c60c6086181f0'],
+  '9': [10,0,0,10,14,'1e061061860860860c61c3ec00c0180184184307e0'],
+  ' ': [5,0,0,0,0,''],
+  '-': [7,0,8,7,2,'7c7c'],
+  '.': [5,1,12,3,2,'66'],
+  ':': [6,1,4,4,10,'6600000066'],
+  '%': [18,0,0,17,14,'3c0406608042180421004220042400664e03c910013180131802318043180c110080e0'],
+};
+
 // ---------- 5x7 bitmap font ----------
 // Each glyph: 7 rows of 5 bits, packed as 7 chars; char value v: '0'-'9' = 0-9, 'a'-'v' = 10-31.
 const FONT: Record<string, string> = {
@@ -166,13 +281,40 @@ function glyphVal(ch: string): number {
 function charW(scale: number, bold: boolean): number {
   return 6 * scale + (bold ? 1 : 0);
 }
+// ---------- serif text engine ----------
+// Scale >= 2 text uses the embedded Liberation Serif bitmaps (a real serif
+// face); scale 1 keeps the 5x7 bitmap font, which stays legible at 7px.
+type SerifGlyph = [number, number, number, number, number, string];
+function serifSet(scale: number, bold: boolean): Record<string, SerifGlyph> {
+  if (scale >= 5) return SERIF35B;
+  return bold ? SERIF14B : SERIF14R;
+}
+function drawSerifGlyph(g: SerifGlyph, x: number, y: number, c: number[]): void {
+  const [, left, top, w, h, hex] = g;
+  if (w === 0 || h === 0) return;
+  const nibPerRow = Math.ceil(w / 4);
+  for (let r = 0; r < h; r++) {
+    for (let col = 0; col < w; col++) {
+      const nib = parseInt(hex[r * nibPerRow + (col >> 2)], 16);
+      if (nib & (8 >> (col & 3))) px(x + left + col, y + top + r, c);
+    }
+  }
+}
 function textW(s: string, scale: number, bold = false): number {
+  if (scale >= 2) {
+    const set = serifSet(scale, bold);
+    let w = 0;
+    for (const ch of s) {
+      const g = set[ch];
+      w += g ? g[0] : charW(scale, bold);
+    }
+    return w;
+  }
   let w = 0;
   for (const ch of s) w += charW(scale, bold);
   return w - (bold ? 1 : 0);
 }
-// Draw one glyph. serif: bold + a slab foot on the bottom row (headline face).
-function drawGlyph(ch: string, x: number, y: number, scale: number, c: number[], bold: boolean, serif: boolean): void {
+function drawGlyph(ch: string, x: number, y: number, scale: number, c: number[], bold: boolean): void {
   const g = FONT[ch] ?? FONT[' '];
   const dx = bold ? 1 : 0;
   for (let pass = 0; pass <= dx; pass++) {
@@ -185,24 +327,26 @@ function drawGlyph(ch: string, x: number, y: number, scale: number, c: number[],
       }
     }
   }
-  if (serif) {
-    const bits = glyphVal(g[6]);
-    if (bits !== 0 && /[A-Z0-9]/.test(ch)) {
-      rect(x - 1, y + 6 * scale, 5 * scale + 2, Math.max(1, Math.floor(scale / 2)), c);
-    }
-  }
 }
-function drawText(s: string, x: number, y: number, scale: number, c: number[], opts: { bold?: boolean; serif?: boolean; align?: 'left' | 'center' | 'right' } = {}): number {
+function drawText(s: string, x: number, y: number, scale: number, c: number[], opts: { bold?: boolean; align?: 'left' | 'center' | 'right' } = {}): number {
   const bold = opts.bold ?? false;
-  const serif = opts.serif ?? false;
   let x0 = x;
   const w = textW(s, scale, bold);
   if (opts.align === 'center') x0 = x - Math.floor(w / 2);
   if (opts.align === 'right') x0 = x - w;
   let cx = x0;
-  for (const ch of s) {
-    drawGlyph(ch, cx, y, scale, c, bold, serif);
-    cx += charW(scale, bold);
+  if (scale >= 2) {
+    const set = serifSet(scale, bold);
+    for (const ch of s) {
+      const g = set[ch];
+      if (g) drawSerifGlyph(g, cx, y, c);
+      cx += g ? g[0] : charW(scale, bold);
+    }
+  } else {
+    for (const ch of s) {
+      drawGlyph(ch, cx, y, scale, c, bold);
+      cx += charW(scale, bold);
+    }
   }
   return w;
 }
@@ -792,10 +936,10 @@ function numBadge(n: number, cx: number, cy: number, r = 8): void {
 // ---------- masthead ----------
 function drawMasthead(): void {
   rect(10, 8, 1004, 26, NAVY);
-  drawText('THE WORLD TODAY', 22, 15, 2, WHITE, { bold: true, serif: true });
+  drawText('THE WORLD TODAY', 22, 15, 2, WHITE, { bold: true });
   drawText('30 STORIES • 7 REGIONS • ALL FROM THIS ONE DAY', 1002, 15, 1, GOLD, { bold: true, align: 'right' });
   // giant serif date
-  drawText('WEDNESDAY 25 NOVEMBER 2026', 512, 42, 5, INK, { bold: true, serif: true, align: 'center' });
+  drawText('WEDNESDAY 25 NOVEMBER 2026', 512, 42, 5, INK, { bold: true, align: 'center' });
   line(10, 84, 1014, 84, INK);
   drawText('TARIFFS HIT 14 PARTNERS • 2 TANKERS HIT • HOUTHIS CLAIM RAS TANURA', 512, 90, 2, RED, { bold: true, align: 'center' });
   // region chips
@@ -832,7 +976,7 @@ function drawLead(s: Story, x: number, y: number, w: number, h: number): void {
   ty += 10;
   const hl = wrapText(s.headline, w - 12, 2, false);
   for (const ln of hl.slice(0, 3)) {
-    drawText(ln, x + 6, ty, 2, INK, { serif: true });
+    drawText(ln, x + 6, ty, 2, INK, {});
     ty += 16;
   }
   const dk = wrapText(s.deck, w - 12, 1, false);
