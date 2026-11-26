@@ -219,7 +219,7 @@ function wrapText(s: string, maxW: number, scale: number, bold = false): string[
   if (cur) lines.push(cur);
   if (lines.length >= 2) {
     const last = lines[lines.length - 1];
-    if (last.split(' ').length === 1 && last.length <= 4) {
+    if (last.split(' ').length === 1) {
       const prev = lines[lines.length - 2].split(' ');
       if (prev.length > 1) {
         const moved = prev.pop()!;
@@ -694,11 +694,11 @@ const STORIES: Story[] = [
   { n: 2, region: 'MIDEAST', loc: 'STRAIT OF HORMUZ', kicker: 'ENERGY • STRAIT OF HORMUZ',
     headline: 'IRGC SAYS 2 TANKERS HIT MINES IN HORMUZ',
     deck: 'BLASTS AND FIRE AT SEA — CLAIM UNVERIFIED',
-    src: 'IRGC, JUST SECURITY', badge: 'CLAIM', scene: 'tanker', lon: 56.5, lat: 26.5, cc: 'IR', also: '' },
+    src: 'IRGC, JUST SECURITY', badge: 'CLAIM', scene: 'tanker', lon: 60, lat: 24, cc: 'IR', also: '' },
   { n: 3, region: 'MIDEAST', loc: 'RAS TANURA & HODEIDAH', kicker: 'WAR • RAS TANURA & HODEIDAH',
     headline: 'HOUTHIS CLAIM RAS TANURA STRIKE',
     deck: 'SAUDI COALITION HITS HODEIDAH IN REPLY',
-    src: 'JUST SECURITY, OILPRICE', badge: 'CLAIM', scene: 'refinery', lon: 50, lat: 26.6, cc: 'SA', also: '' },
+    src: 'JUST SECURITY, OILPRICE', badge: 'CLAIM', scene: 'refinery', lon: 48, lat: 17, cc: 'SA', also: '' },
   { n: 4, region: 'ASIA', loc: 'JIUQUAN, CHINA', kicker: 'SPACE • JIUQUAN',
     headline: 'SHENZHOU-24 DOCKS AT TIANGONG',
     deck: 'FIRST PAKISTANI IN ORBIT',
@@ -710,18 +710,18 @@ const STORIES: Story[] = [
   { n: 6, region: 'EUROPE', loc: 'SAVASLEYKA, RUSSIA', kicker: 'WAR • SAVASLEYKA',
     headline: 'UKRAINE SAYS 5 PLANES HIT AT AIR BASE',
     deck: '3 MIG-31S, 2 SU-34S — CLAIM',
-    src: 'REUTERS', badge: 'CLAIM', scene: 'jets', lon: 43, lat: 55.6, cc: 'RU', also: '' },
+    src: 'REUTERS', badge: 'CLAIM', scene: 'jets', lon: 48, lat: 58, cc: 'RU', also: '' },
   { n: 7, region: 'EUROPE', loc: 'ODESA, UKRAINE', kicker: 'WAR • ODESA',
     headline: 'RUSSIAN STRIKE KILLS 2 IN ODESA',
     deck: '9,000 HOMES LOSE POWER',
-    src: 'REUTERS', badge: 'REPORTED', scene: 'city', lon: 30.7, lat: 46.5, cc: 'UA', also: '' },
+    src: 'REUTERS', badge: 'REPORTED', scene: 'city', lon: 28, lat: 44, cc: 'UA', also: '' },
   { n: 8, region: 'NAMER', loc: 'WASHINGTON, USA', kicker: 'ECONOMY • WASHINGTON',
     headline: 'INFLATION HOT: PCE 3.8%',
     deck: 'S&P 500 CLOSES 7,182.78, -0.25%',
     src: 'INVESTINGLIVE', badge: 'REPORTED', scene: 'chartDown', lon: -77, lat: 39, cc: 'US', also: '' },
   { n: 9, region: 'NAMER', loc: 'GULF OF MEXICO', kicker: 'FOUND • GULF OF MEXICO',
     headline: 'CESSNA WRECK FOUND: 6 DEAD',
-    deck: 'CRASH WAS TUESDAY; BODIES FOUND WED.',
+    deck: 'CRASH TUESDAY; FOUND WED.',
     src: 'USA TODAY', badge: 'REPORTED', scene: 'planeCrash', lon: -89, lat: 30.2, cc: 'US', also: '' },
   { n: 10, region: 'LATAM', loc: 'CARTAGENA, COLOMBIA', kicker: 'FREED • CARTAGENA',
     headline: 'ALL HOSTAGES FREED AFTER 17 HOURS',
@@ -729,11 +729,11 @@ const STORIES: Story[] = [
     src: 'AP', badge: 'REPORTED', scene: 'hostage', lon: -75.5, lat: 10.4, cc: 'CO', also: '' },
   { n: 11, region: 'MIDEAST', loc: 'GAZA', kicker: 'WAR • GAZA',
     headline: 'ISRAELI STRIKE KILLS HAMAS COLONEL',
-    deck: 'WIFE AND 2 CHILDREN ALSO KILLED',
-    src: 'JUST SECURITY', badge: 'REPORTED', scene: 'city', lon: 34.5, lat: 31.5, cc: 'PS', also: '' },
+    deck: 'WIFE, 2 CHILDREN KILLED',
+    src: 'JUST SECURITY', badge: 'REPORTED', scene: 'city', lon: 30, lat: 32, cc: 'PS', also: '' },
   { n: 12, region: 'AFRICA', loc: 'CAIRO, EGYPT', kicker: 'DISASTER • CAIRO',
     headline: 'TANKER FIRE KILLS 31 IN CAIRO',
-    deck: '21 HURT; DOZENS OF CARS BURNED',
+    deck: '21 HURT; CARS BURNED',
     src: 'REUTERS, AP', badge: 'REPORTED', scene: 'fire', lon: 31.2, lat: 30, cc: 'EG', also: '' },
   { n: 13, region: 'PACIFIC', loc: 'CANBERRA, AUSTRALIA', kicker: 'TREATY • CANBERRA',
     headline: 'AUSTRALIA-SOLOMON SIGN SECURITY PACT',
@@ -747,25 +747,25 @@ const STORIES: Story[] = [
     also: 'NORTH KOREA EXPELS SWISS DIPLOMAT' },
   { n: 17, region: 'ASIA', loc: 'FUKUOKA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'city', lon: 130.4, lat: 33.6, cc: 'JP',
     also: 'PARKING ATTENDANT STABBED DEAD IN FUKUOKA' },
-  { n: 18, region: 'EUROPE', loc: 'THE HAGUE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: 4.3, lat: 52.1, cc: 'NL',
+  { n: 18, region: 'EUROPE', loc: 'THE HAGUE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'flags', lon: -2, lat: 56, cc: 'NL',
     also: '34 NATIONS: HALT TEAR GAS IN UKRAINE WAR' },
-  { n: 19, region: 'EUROPE', loc: 'BERLIN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'parliament', lon: 13.4, lat: 52.5, cc: 'DE',
+  { n: 19, region: 'EUROPE', loc: 'BERLIN', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'parliament', lon: 16, lat: 54, cc: 'DE',
     also: 'MERZ DEFENDS UKRAINE AID IN BERLIN' },
-  { n: 20, region: 'EUROPE', loc: 'STRASBOURG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'tree', lon: 7.75, lat: 48.6, cc: 'EU',
+  { n: 20, region: 'EUROPE', loc: 'STRASBOURG', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'tree', lon: 8, lat: 46, cc: 'EU',
     also: 'EU VOTES 376-268 TO WEAKEN NATURE LAW' },
   { n: 21, region: 'NAMER', loc: 'SANTA CLARA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'chip', lon: -122, lat: 37.4, cc: 'US',
     also: 'NVIDIA BOSS APOLOGISES — REPORTED WED.' },
-  { n: 22, region: 'NAMER', loc: 'MADRID', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'personPlane', lon: -3.7, lat: 40.4, cc: 'ES',
+  { n: 22, region: 'NAMER', loc: 'MADRID', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'personPlane', lon: -8, lat: 39, cc: 'ES',
     also: 'ABREGO GARCIA LANDS IN MADRID, FREE' },
   { n: 23, region: 'LATAM', loc: 'CORDOBA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'factory', lon: -64.2, lat: -31.4, cc: 'AR',
     also: 'STELLANTIS OPENS FIRST ENGINE PLANT' },
   { n: 24, region: 'LATAM', loc: 'SAO PAULO', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'plane', lon: -46.6, lat: -23.5, cc: 'BR',
     also: 'US PROPOSES 10% DUTY ON EMBRAER JETS' },
-  { n: 25, region: 'MIDEAST', loc: 'GAZA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'report', lon: 35.6, lat: 32.2, cc: 'PS',
+  { n: 25, region: 'MIDEAST', loc: 'GAZA', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'report', lon: 44, lat: 40, cc: 'PS',
     also: 'AMNESTY: WOMEN BEAR CRUSHING TOLL IN GAZA' },
-  { n: 26, region: 'MIDEAST', loc: 'HODEIDAH', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'port', lon: 42.8, lat: 14.8, cc: 'YE',
+  { n: 26, region: 'MIDEAST', loc: 'HODEIDAH', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'port', lon: 40, lat: 11, cc: 'YE',
     also: 'SAUDI COALITION STRIKES HODEIDAH PORT' },
-  { n: 27, region: 'MIDEAST', loc: 'HORMUZ', kicker: '', headline: '', deck: '', src: '', badge: 'CLAIM', scene: 'drone', lon: 57.5, lat: 28, cc: 'IR',
+  { n: 27, region: 'MIDEAST', loc: 'HORMUZ', kicker: '', headline: '', deck: '', src: '', badge: 'CLAIM', scene: 'drone', lon: 63, lat: 32, cc: 'IR',
     also: 'IRAN CLAIMS 2 US DRONES DOWNED' },
   { n: 28, region: 'AFRICA', loc: 'BLUE NILE', kicker: '', headline: '', deck: '', src: '', badge: 'REPORTED', scene: 'desert', lon: 34.4, lat: 11.2, cc: 'SD',
     also: 'RSF DRONE STRIKE KILLS 19 IN SUDAN' },
@@ -795,7 +795,7 @@ function drawMasthead(): void {
   drawText('THE WORLD TODAY', 22, 15, 2, WHITE, { bold: true, serif: true });
   drawText('30 STORIES • 7 REGIONS • ALL FROM THIS ONE DAY', 1002, 15, 1, GOLD, { bold: true, align: 'right' });
   // giant serif date
-  drawText('Wednesday 25 November 2026', 512, 42, 5, INK, { bold: true, serif: true, align: 'center' });
+  drawText('WEDNESDAY 25 NOVEMBER 2026', 512, 42, 5, INK, { bold: true, serif: true, align: 'center' });
   line(10, 84, 1014, 84, INK);
   drawText('TARIFFS HIT 14 PARTNERS • 2 TANKERS HIT • HOUTHIS CLAIM RAS TANURA', 512, 90, 2, RED, { bold: true, align: 'center' });
   // region chips
@@ -826,14 +826,14 @@ function drawLead(s: Story, x: number, y: number, w: number, h: number): void {
   const bw = badge(s.badge, x + w - 8 - (textW(s.badge, 1, true) + 8), y + 3);
   void bw;
   // scene
-  paintScene(s.scene, x + 1, y + 19, w - 2, 76);
-  let ty = y + 19 + 76 + 6;
+  paintScene(s.scene, x + 1, y + 19, w - 2, 88);
+  let ty = y + 19 + 88 + 6;
   drawText(s.kicker, x + 6, ty, 1, RED, { bold: true });
   ty += 10;
-  const hl = wrapText(s.headline, w - 12, 2, true);
+  const hl = wrapText(s.headline, w - 12, 2, false);
   for (const ln of hl.slice(0, 3)) {
-    drawText(ln, x + 6, ty, 2, INK, { bold: true, serif: true });
-    ty += 15;
+    drawText(ln, x + 6, ty, 2, INK, { serif: true });
+    ty += 16;
   }
   const dk = wrapText(s.deck, w - 12, 1, false);
   for (const ln of dk.slice(0, 2)) {
@@ -853,10 +853,169 @@ function drawNumbers(x: number, y: number, w: number, h: number): void {
     ['19', 'KILLED IN SUDAN'], ['9', 'MINERS IN BOGOR'], ['5', 'PLANES HIT'],
     ['36%', 'PAY RISE, REJECTED'], ['-6.2%', 'KOSPI'],
   ];
-  let ry = y + 28;
+  let ry = y + 20;
   for (const [num, label] of rows) {
-    drawText(num, x + 10, ry, 3, GOLD, { bold: true });
-    drawText(label, x + 108, ry + 5, 1, WHITE, { bold: true });
-    ry += 19;
+    drawText(num, x + 10, ry, 2, GOLD, { bold: true });
+    drawText(label, x + 108, ry + 4, 1, WHITE, { bold: true });
+    ry += 23;
   }
 }
+
+// ---------- medium card ----------
+function drawMedium(s: Story, x: number, y: number, w: number, h: number): void {
+  outline(x, y, w, h, LINE, 1);
+  paintScene(s.scene, x + 1, y + 1, w - 2, 40);
+  numBadge(s.n, x + 11, y + 11, 7);
+  badge(s.badge, x + w - 8 - (textW(s.badge, 1, true) + 8), y + 4);
+  drawText(s.kicker, x + 6, y + 45, 1, RED, { bold: true });
+  const hl = wrapText(s.headline, w - 12, 1, true);
+  let ty = y + 57;
+  for (const ln of hl.slice(0, 2)) {
+    drawText(ln, x + 6, ty, 1, INK, { bold: true });
+    ty += 9;
+  }
+  const dk = wrapText(s.deck, w - 12, 1, false);
+  if (dk.length > 0) drawText(dk[0], x + 6, y + 77, 1, INK, {});
+  drawText(s.src, x + 6, y + h - 9, 1, GRAY, {});
+}
+
+// ---------- ALSO list ----------
+function drawAlso(): void {
+  drawText('ALSO ON WEDNESDAY 25 NOVEMBER', 10, 562, 2, INK, { bold: true });
+  // legend on the right
+  let lx = 1014;
+  const lg: [Badge, string][] = [['REPORTED', 'REPORTED'], ['CLAIM', 'CLAIM'], ['ONGOING', 'ONGOING']];
+  for (let i = lg.length - 1; i >= 0; i--) {
+    const [b, label] = lg[i];
+    const w = textW(label, 1, true) + 8;
+    lx -= w;
+    rect(lx, 560, w, 12, BADGE_C[b]);
+    drawText(label, lx + 4, 563, 1, WHITE, { bold: true });
+    lx -= 8;
+  }
+  const cols: [number, number][] = [[10, 6], [226, 6], [442, 5]];
+  let idx = 14;
+  for (const [cx, count] of cols) {
+    let cy = 586;
+    for (let i = 0; i < count; i++) {
+      const s = STORIES[idx - 1];
+      idx++;
+      // flag with country code
+      rect(cx, cy + 1, 16, 10, RC[s.region]);
+      drawText(s.cc, cx + 1, cy + 3, 1, WHITE, { bold: true });
+      drawText(String(s.n), cx + 20, cy + 2, 1, RED, { bold: true });
+      const lines = wrapText(s.also, 210 - 38, 1, false);
+      let ty = cy + 1;
+      for (const ln of lines.slice(0, 2)) {
+        drawText(ln, cx + 38, ty, 1, INK, { bold: true });
+        ty += 9;
+      }
+      drawText(s.loc, cx + 38, cy + 21, 1, GRAY, {});
+      cy += 46;
+    }
+  }
+}
+
+// ---------- world map ----------
+const LAND: [number, number, number, number][] = [
+  [98, 41, 90, 30], [152, 80, 25, 10], [142, 11, 23, 11], [222, 98, 44, 36],
+  [188, 30, 31, 17], [173, 20, 9, 9], [189, 86, 38, 39], [212, 123, 7, 11],
+  [276, 43, 76, 34], [245, 77, 16, 18], [265, 82, 21, 14], [296, 100, 46, 8],
+  [318, 55, 9, 16], [300, 116, 26, 12], [326, 134, 7, 11],
+];
+function inLand(px: number, py: number): boolean {
+  for (const [cx, cy, rx, ry] of LAND) {
+    const dx = (px - cx) / rx;
+    const dy = (py - cy) / ry;
+    if (dx * dx + dy * dy <= 1) return true;
+  }
+  return false;
+}
+function drawMap(x: number, y: number, w: number, h: number): void {
+  outline(x, y, w, h, LINE, 1);
+  drawText('WHERE IT HAPPENED', x + 8, y + 6, 1, INK, { bold: true });
+  drawText('pins = story numbers', x + w - 8, y + 6, 1, GRAY, { align: 'right' });
+  const mx = x + 2;
+  const my = y + 22;
+  const mw = w - 4;
+  const mh = 150;
+  // dotted land
+  for (let gy = 0; gy < mh; gy += 5) {
+    for (let gx = 0; gx < mw; gx += 5) {
+      if (inLand(gx, gy)) rect(mx + gx, my + gy, 2, 2, [120, 130, 140]);
+    }
+  }
+  // region labels
+  drawText('N. AMERICA', mx + 30, my + 8, 1, INK, {});
+  drawText('S. AMERICA', mx + 150, my + 92, 1, INK, {});
+  drawText('EUROPE', mx + 165, my + 8, 1, INK, {});
+  drawText('AFRICA', mx + 165, my + 76, 1, INK, {});
+  drawText('ASIA', mx + 255, my + 14, 1, INK, {});
+  drawText('PACIFIC', mx + 240, my + 132, 1, INK, {});
+  // pins
+  for (const s of STORIES) {
+    const px = mx + ((s.lon + 180) / 360) * mw;
+    const py = my + ((85 - s.lat) / 145) * mh;
+    circle(px, py, 6, RED);
+    ring(px, py, 6, WHITE);
+    const t = String(s.n);
+    drawText(t, px - Math.floor(textW(t, 1, true) / 2), py - 3, 1, WHITE, { bold: true });
+  }
+  // region tally
+  let ty = y + 180;
+  drawText('BY REGION', x + 8, ty, 1, RED, { bold: true });
+  ty += 12;
+  const tally: [Region, string, string][] = [
+    ['ASIA', 'ASIA 6', '4, 5, 14, 15, 16, 17'],
+    ['EUROPE', 'EUROPE 5', '6, 7, 18, 19, 20'],
+    ['NAMER', 'N. AMER 5', '1, 8, 9, 21, 22'],
+    ['LATAM', 'LATAM 3', '10, 23, 24'],
+    ['MIDEAST', 'MIDEAST 6', '2, 3, 11, 25, 26, 27'],
+    ['AFRICA', 'AFRICA 4', '12, 28, 29, 30'],
+    ['PACIFIC', 'PACIFIC 1', '13'],
+  ];
+  for (const [reg, label, nums] of tally) {
+    rect(x + 8, ty + 1, 10, 8, RC[reg]);
+    drawText(label, x + 22, ty, 1, INK, { bold: true });
+    drawText(nums, x + 110, ty, 1, GRAY, {});
+    ty += 13;
+  }
+}
+
+// ---------- footer ----------
+function drawFooter(): void {
+  // DATE CHECK box
+  outline(10, 880, 1004, 70, RED, 2);
+  drawText('DATE CHECK —', 22, 890, 1, RED, { bold: true });
+  drawText('EVERY STORY HERE HAPPENED OR WAS FIRST REPORTED ON WED 25 NOV 2026, IN ANY TIME ZONE.', 22 + textW('DATE CHECK — ', 1, true), 890, 1, INK, {});
+  drawText('STORIES FIRST REPORTED WEDNESDAY ARE LABELLED FOUND / FREED / REPORTED.', 22, 904, 1, INK, {});
+  drawText('LEFT OUT:', 22, 920, 1, RED, { bold: true });
+  drawText('HUAWEI VERDICT (24 NOV) • RIYADH TOWER (24 NOV) • BENGHAZI SHIP (23 NOV) • CIA BREACH (24 NOV) • GIULIANI MEDAL (24 NOV)', 22 + textW('LEFT OUT: ', 1, true), 920, 1, INK, {});
+  drawText('SOURCES: REUTERS • AP • JUST SECURITY • XINHUA • BBC • HOW SURE: REPORTED = DAY\'S WIRES OR OFFICIALS • CLAIM = ONE SIDE\'S ACCOUNT • ONGOING = STILL UNFOLDING', 512, 958, 1, GRAY, { align: 'center' });
+  drawText('SCENES ARE DRAWN ILLUSTRATIONS, NOT PHOTOGRAPHS.', 512, 970, 1, GRAY, { align: 'center' });
+  outline(4, 4, 1016, 1016, INK, 2);
+}
+
+// ---------- main ----------
+function main(): void {
+  rect(0, 0, W, H, PAPER);
+  drawMasthead();
+  // leads row
+  const leads = [STORIES[0], STORIES[1], STORIES[2]];
+  const lx = [10, 261, 512];
+  for (let i = 0; i < 3; i++) drawLead(leads[i], lx[i], 134, 244, 202);
+  drawNumbers(762, 134, 252, 202);
+  // medium cards, 2 rows of 5
+  const med = STORIES.slice(3, 13);
+  const mx = [10, 212, 414, 616, 818];
+  for (let i = 0; i < 5; i++) drawMedium(med[i], mx[i], 344, 196, 100);
+  for (let i = 0; i < 5; i++) drawMedium(med[i + 5], mx[i], 452, 196, 100);
+  // also + map
+  drawAlso();
+  drawMap(660, 584, 354, 288);
+  drawFooter();
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, 'entry.png'), encodePNG());
+}
+main();
